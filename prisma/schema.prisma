@@ -32,6 +32,7 @@ model User {
   threads       MessageThread[] @relation("UserThreads")
   abuseReports  AbuseReport[]  @relation("Reporter")
   auditLogs     AuditLog[]     @relation("Actor")
+  archiveFiles  ArchiveFile[]
 }
 
 enum Role {
@@ -52,6 +53,7 @@ model Client {
   orders       Order[]
   bids         Bid[]
   threads      MessageThread[]
+  orderRequests OrderRequest[]
 }
 
 // Vendor profile
@@ -62,6 +64,7 @@ model Vendor {
 
   stores    Store[]
   auditLogs AuditLog[] @relation("VendorAudit")
+  threads   MessageThread[]
 }
 
 // Admin profile
@@ -88,6 +91,7 @@ model Store {
   products Product[]
   auctions Auction[]
   orders   Order[]
+  orderRequests OrderRequest[]
 }
 
 enum StoreStatus {
@@ -110,6 +114,7 @@ model Product {
   auctions Auction[]
   offers   Offer[]
   reviews  Review[]
+  watchlistItems WatchlistItem[]
 }
 
 enum ProductCondition {
@@ -237,6 +242,8 @@ model MessageThread {
   clientId BigInt? @db.BigInt
   vendor   Vendor? @relation(fields: [vendorId], references: [id])
   vendorId BigInt? @db.BigInt
+  user     User    @relation("UserThreads", fields: [userId], references: [id])
+  userId   BigInt  @db.BigInt
 
   messages Message[]
 }
@@ -331,6 +338,8 @@ model AuditLog {
   id        BigInt  @id @default(autoincrement()) @db.BigInt
   actor     User    @relation(name: "Actor", fields: [actorId], references: [id])
   actorId   BigInt  @db.BigInt
+  vendor    Vendor? @relation(name: "VendorAudit", fields: [vendorId], references: [id])
+  vendorId  BigInt? @db.BigInt
   entity    String
   entityId  BigInt
   diff      Json

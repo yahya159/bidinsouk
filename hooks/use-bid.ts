@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { pusherClient } from '@/lib/realtime/pusher'
-import { prisma } from '@/lib/db/prisma'
 
 interface Bid {
   id: number
@@ -29,20 +28,16 @@ export function useBid(auctionId: number) {
     // Fetch initial auction data and bids
     const fetchAuctionData = async () => {
       try {
-        // In a real app, you'd fetch this from an API endpoint
-        // For now, we'll use placeholder data
-        const auctionData = await prisma.auction.findUnique({
-          where: { id: auctionId }
-        })
+        // Fetch auction data from API endpoint
+        const auctionResponse = await fetch(`/api/auctions/${auctionId}`)
+        const auctionData = await auctionResponse.json()
         
-        const bidsData = await prisma.bid.findMany({
-          where: { auctionId },
-          orderBy: { createdAt: 'desc' },
-          take: 20
-        })
+        // Fetch bids data from API endpoint
+        const bidsResponse = await fetch(`/api/auctions/${auctionId}/bids`)
+        const bidsData = await bidsResponse.json()
         
-        setAuction(auctionData as any)
-        setBids(bidsData as any)
+        setAuction(auctionData)
+        setBids(bidsData)
       } catch (error) {
         console.error('Failed to fetch auction data:', error)
       }
