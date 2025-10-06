@@ -1,3 +1,6 @@
+// Prisma schema for MySQL mapping the marketplace with auctions, bids, orders,
+// messaging, notifications, watchlists, reviews, abuse reports, audit logs
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,341 +10,361 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
+// Users and Roles
+model User {
+  id        BigInt   @id @default(autoincrement()) @db.BigInt
+  email     String   @unique
+  name      String
+  password  String
+  avatarUrl String?  @db.VarChar(512)
+  phone     String?  @db.VarChar(32)
+  locale    String?  @default("fr")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  role   Role   @default(CLIENT)
+  client Client?
+  vendor Vendor?
+  admin  Admin?
+
+  notifications Notification[]
+  messages      Message[]      @relation("UserMessages")
+  threads       MessageThread[] @relation("UserThreads")
+  abuseReports  AbuseReport[]  @relation("Reporter")
+  auditLogs     AuditLog[]     @relation("Actor")
+}
+
+enum Role {
   CLIENT
   VENDOR
   ADMIN
 }
 
-enum StoreStatus {
-  active
-  suspended
-  pending
+// Client profile
+model Client {
+  id        BigInt @id @default(autoincrement()) @db.BigInt
+  user      User   @relation(fields: [userId], references: [id])
+  userId    BigInt @unique @db.BigInt
+
+  reviews      Review[]
+  watchlist    WatchlistItem[]
+  savedSearch  SavedSearch[]
+  orders       Order[]
+  bids         Bid[]
+  threads      MessageThread[]
 }
 
-enum AuctionStatus {
-  scheduled
-  running
-  trending_soon
-  ended
-  archived
+// Vendor profile
+model Vendor {
+  id        BigInt @id @default(autoincrement()) @db.BigInt
+  user      User   @relation(fields: [userId], references: [id])
+  userId    BigInt @unique @db.BigInt
+
+  stores    Store[]
+  auditLogs AuditLog[] @relation("VendorAudit")
 }
 
-enum ReviewStatus {
-  pending
-  approved
-  rejected
-}
-
-enum ArchiveStatus {
-  active
-  archived
-  deleted
-}
-
-enum AbuseStatus {
-  open
-  reviewing
-  resolved
-  rejected
-}
-
-enum ThreadType {
-  product
-  order
-  support
-}
-
-enum NotificationType {
-  order
-  auction
-  message
-  system
-}
-
-// ---------- Core: Users & Stores ----------
-model User {
-  id               BigInt      @id @default(autoincrement())
-  email            String       @unique @db.VarChar(191)
-  name             String       @db.VarChar(191)
-  phone            String?      @db.VarChar(64)
-  avatar           String?      @db.VarChar(512)
-  locale           String?      @db.VarChar(16)
-  emailVerifiedAt  DateTime?
-  phoneVerifiedAt  DateTime?
-  role             UserRole     @default(CLIENT)
-
-  // Relations
-  stores           Store[]      @relation("UserStores")   // as Vendor owns/manages
-  orders           Order[]
-  orderRequests    OrderRequest[]
-  bids             Bid[]
-  reviews          Review[]
-  notifications    Notification[]
-  messages         Message[]    @relation("UserMessages")
-  watchlist        Watchlist?
-  savedSearches    SavedSearch[]
-  auditLogs        AuditLog[]   @relation("ActorLogs")
-  archiveFiles     ArchiveFile[] @relation("UserArchiveFiles")
-  threadParticipants ThreadParticipant[] @relation("ThreadParticipantUser")
-
-  // Admin capabilities implied by role = ADMIN
-
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+// Admin profile
+model Admin {
+  id     BigInt @id @default(autoincrement()) @db.BigInt
+  user   User   @relation(fields: [userId], references: [id])
+  userId BigInt @unique @db.BigInt
 }
 
 model Store {
-  id        BigInt     @id @default(autoincrement())
-  sellerId  BigInt
-  name      String      @db.VarChar(191)
-  slug      String      @unique @db.VarChar(191)
-  email     String      @db.VarChar(191)
-  phone     String      @db.VarChar(64)
-  status    StoreStatus @default(pending)
+  id        BigInt  @id @default(autoincrement()) @db.BigInt
+  seller    Vendor  @relation(fields: [sellerId], references: [id])
+  sellerId  BigInt  @db.BigInt
+  name      String
+  slug      String  @unique
+  email     String
+  phone     String?
+  address   Json?
+  socials   Json?
+  seo       Json?
+  status    StoreStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
 
-  seller    User        @relation("UserStores", fields: [sellerId], references: [id])
-  products  Product[]
-  auctions  Auction[]
-  orders    Order[]
-  requests  OrderRequest[]
-  files     ArchiveFile[] @relation("StoreArchiveFiles")
-
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  @@index([sellerId])
+  products Product[]
+  auctions Auction[]
+  orders   Order[]
 }
 
-// ---------- Catalog / Listings ----------
+enum StoreStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
 model Product {
-  id        BigInt     @id @default(autoincrement())
-  storeId   BigInt
-  title     String      @db.VarChar(191)
-  status    String      @db.VarChar(64) // kept as free-form per diagrams
-  reviews   Review[]
-  auctions  Auction[]
+  id        BigInt @id @default(autoincrement()) @db.BigInt
+  store     Store  @relation(fields: [storeId], references: [id])
+  storeId   BigInt @db.BigInt
+  title     String
+  brand     String?
+  category  String?
+  condition ProductCondition @default(USED)
+  status    ProductStatus    @default(DRAFT)
+  createdAt DateTime @default(now())
 
-  store     Store       @relation(fields: [storeId], references: [id])
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  @@index([storeId])
+  auctions Auction[]
+  offers   Offer[]
+  reviews  Review[]
 }
 
-model Review {
-  id        BigInt   @id @default(autoincrement())
-  productId BigInt
-  userId    BigInt
-  rating    Int
-  body      String?
-  photos    Json?
-  verified  Boolean   @default(false)
-  status    ReviewStatus @default(pending)
-  createdAt DateTime  @default(now())
-
-  product   Product  @relation(fields: [productId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@index([productId])
-  @@index([userId])
+enum ProductCondition {
+  NEW
+  USED
 }
 
-// ---------- Auctions & Bids ----------
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
 model Auction {
-  id           BigInt        @id @default(autoincrement())
-  productId    BigInt
-  storeId      BigInt
-  title        String         @db.VarChar(191)
-  status       AuctionStatus  @default(scheduled)
-  currentBid   Decimal?       @db.Decimal(18,2)
-  minIncrement Decimal?       @db.Decimal(18,2)
-  endAt        DateTime?
-  bids         Bid[]
+  id            BigInt @id @default(autoincrement()) @db.BigInt
+  product       Product @relation(fields: [productId], references: [id])
+  productId     BigInt  @db.BigInt
+  store         Store   @relation(fields: [storeId], references: [id])
+  storeId       BigInt  @db.BigInt
+  title         String
+  minIncrement  Decimal @db.Decimal(12,2)
+  currentBid    Decimal @default(0) @db.Decimal(12,2)
+  startPrice    Decimal @db.Decimal(12,2)
+  reservePrice  Decimal? @db.Decimal(12,2)
+  startAt       DateTime @default(now())
+  endAt         DateTime
+  status        AuctionStatus @default(SCHEDULED)
 
-  product      Product        @relation(fields: [productId], references: [id])
-  store        Store          @relation(fields: [storeId], references: [id])
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  bids          Bid[]
+}
 
-  @@index([productId])
-  @@index([storeId])
+enum AuctionStatus {
+  SCHEDULED
+  RUNNING
+  ENDING_SOON
+  ENDED
+  ARCHIVED
 }
 
 model Bid {
-  id         BigInt    @id @default(autoincrement())
-  auctionId  BigInt
-  userId     BigInt
-  amount     Decimal   @db.Decimal(18,2)
-  isAuto     Boolean   @default(false)
-  createdAt  DateTime  @default(now())
-
-  auction    Auction   @relation(fields: [auctionId], references: [id])
-  user       User      @relation(fields: [userId], references: [id])
-
-  @@index([auctionId])
-  @@index([userId])
+  id        BigInt  @id @default(autoincrement()) @db.BigInt
+  auction   Auction @relation(fields: [auctionId], references: [id])
+  auctionId BigInt  @db.BigInt
+  client    Client  @relation(fields: [clientId], references: [id])
+  clientId  BigInt  @db.BigInt
+  amount    Decimal @db.Decimal(12,2)
+  isAuto    Boolean @default(false)
+  createdAt DateTime @default(now())
 }
 
-// ---------- Orders & Requests ----------
+model Offer {
+  id         BigInt @id @default(autoincrement()) @db.BigInt
+  product    Product @relation(fields: [productId], references: [id])
+  productId  BigInt  @db.BigInt
+  price      Decimal @db.Decimal(12,2)
+  promoPct   Int? 
+  active     Boolean @default(true)
+}
+
 model OrderRequest {
-  id        BigInt   @id @default(autoincrement())
-  userId    BigInt
-  storeId   BigInt
-  source    String   @db.VarChar(64)     // "buy_now" | "auction_claim"
-  status    String   @db.VarChar(64)     // "requested" | "seller_accepted" | ...
-  requestAt DateTime? 
-  expiresAt DateTime?
-  address   Json?
-
-  user      User     @relation(fields: [userId], references: [id])
+  id        BigInt   @id @default(autoincrement()) @db.BigInt
+  user      Client   @relation(fields: [userId], references: [id])
+  userId    BigInt   @db.BigInt
   store     Store    @relation(fields: [storeId], references: [id])
+  storeId   BigInt   @db.BigInt
+  source    OrderSource
+  status    OrderRequestStatus @default(REQUESTED)
+  expressAt DateTime?
+  address   Json?
+  notes     String?
+  createdAt DateTime @default(now())
+}
 
-  @@index([userId])
-  @@index([storeId])
+enum OrderSource {
+  BUY_NOW
+  AUCTION_CLAIM
+}
+
+enum OrderRequestStatus {
+  REQUESTED
+  SELLER_ACCEPTED
+  SELLER_REFUSED
+  EXPIRED
+  CONVERTED
 }
 
 model Order {
-  id        BigInt   @id @default(autoincrement())
-  userId    BigInt
-  storeId   BigInt
-  status    String   @db.VarChar(64)
-
-  user      User     @relation(fields: [userId], references: [id])
-  store     Store    @relation(fields: [storeId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-  @@index([storeId])
+  id           BigInt @id @default(autoincrement()) @db.BigInt
+  user         Client @relation(fields: [userId], references: [id])
+  userId       BigInt @db.BigInt
+  store        Store  @relation(fields: [storeId], references: [id])
+  storeId      BigInt @db.BigInt
+  number       String @unique
+  total        Decimal @db.Decimal(12,2)
+  status       OrderStatus @default(CONFIRMED)
+  fulfillStatus FulfillStatus @default(PENDING)
+  shipping     Json?
+  timeline     Json?
+  createdAt    DateTime @default(now())
 }
 
-// ---------- Messaging ----------
+enum OrderStatus {
+  CONFIRMED
+  REFUSED
+  CANCELED_AFTER_CONFIRM
+}
+
+enum FulfillStatus {
+  PENDING
+  PREPARING
+  READY_FOR_PICKUP
+  SHIPPED
+  DELIVERED
+  CANCELED
+}
+
 model MessageThread {
-  id            BigInt      @id @default(autoincrement())
-  type          ThreadType
-  subject       String       @db.VarChar(191)
-  status        String       @db.VarChar(32) // "open" | "closed"
+  id          BigInt  @id @default(autoincrement()) @db.BigInt
+  type        ThreadType
+  subject     String
   lastMessageAt DateTime?
 
-  // participants (many users per thread)
-  participants  ThreadParticipant[] @relation("ThreadParticipantThread")
-  messages      Message[]
+  // Participants
+  client   Client? @relation(fields: [clientId], references: [id])
+  clientId BigInt? @db.BigInt
+  vendor   Vendor? @relation(fields: [vendorId], references: [id])
+  vendorId BigInt? @db.BigInt
 
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  messages Message[]
 }
 
-model ThreadParticipant {
-  id        BigInt  @id @default(autoincrement())
-  threadId  BigInt
-  userId    BigInt
-
-  thread    MessageThread @relation("ThreadParticipantThread", fields: [threadId], references: [id])
-  user      User          @relation("ThreadParticipantUser", fields: [userId], references: [id])
-
-  @@unique([threadId, userId])
-  @@index([userId])
+enum ThreadType {
+  PRODUCT
+  ORDER
+  SUPPORT
 }
 
 model Message {
-  id           BigInt   @id @default(autoincrement())
-  threadId     BigInt
-  authorId     BigInt
-  body         String?
-  attachments  Json?
-  createdAt    DateTime @default(now())
-
-  thread       MessageThread @relation(fields: [threadId], references: [id])
-  author       User          @relation("UserMessages", fields: [authorId], references: [id])
-
-  @@index([threadId])
-  @@index([authorId])
+  id         BigInt  @id @default(autoincrement()) @db.BigInt
+  thread     MessageThread @relation(fields: [threadId], references: [id])
+  threadId   BigInt  @db.BigInt
+  sender     User    @relation(name: "UserMessages", fields: [senderId], references: [id])
+  senderId   BigInt  @db.BigInt
+  bodyMd     String
+  attachments Json?
+  createdAt  DateTime @default(now())
 }
 
-// ---------- Notifications / Saved content ----------
 model Notification {
-  id        BigInt          @id @default(autoincrement())
-  userId    BigInt
+  id        BigInt  @id @default(autoincrement()) @db.BigInt
+  user      User    @relation(fields: [userId], references: [id])
+  userId    BigInt  @db.BigInt
   type      NotificationType
-  title     String          @db.VarChar(191)
+  title     String
   body      String
   payload   Json?
-  createdAt DateTime        @default(now())
+  createdAt DateTime @default(now())
   readAt    DateTime?
-
-  user      User            @relation(fields: [userId], references: [id])
-
-  @@index([userId])
 }
 
-model Watchlist {
-  id        BigInt   @id @default(autoincrement())
-  userId    BigInt   @unique
+enum NotificationType {
+  ORDER
+  AUCTION
+  MESSAGE
+  SYSTEM
+}
+
+model WatchlistItem {
+  id        BigInt  @id @default(autoincrement()) @db.BigInt
+  client    Client  @relation(fields: [clientId], references: [id])
+  clientId  BigInt  @db.BigInt
+  product   Product @relation(fields: [productId], references: [id])
+  productId BigInt  @db.BigInt
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
+  @@unique([clientId, productId])
 }
 
-model SavedSearch {
-  id        BigInt   @id @default(autoincrement())
-  userId    BigInt
-  query     String
+model Review {
+  id        BigInt  @id @default(autoincrement()) @db.BigInt
+  product   Product @relation(fields: [productId], references: [id])
+  productId BigInt  @db.BigInt
+  client    Client  @relation(fields: [clientId], references: [id])
+  clientId  BigInt  @db.BigInt
+  rating    Int
+  body      String
+  photos    Json?
+  verified  Boolean @default(false)
+  status    ReviewStatus @default(PENDING)
   createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@index([userId])
 }
 
-// ---------- Moderation / Admin ----------
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model AbuseReport {
-  id         BigInt      @id @default(autoincrement())
+  id         BigInt  @id @default(autoincrement()) @db.BigInt
+  reporter   User    @relation(name: "Reporter", fields: [reporterId], references: [id])
+  reporterId BigInt  @db.BigInt
   targetType String
-  targetId   BigInt?
+  targetId   BigInt
   reason     String
   details    String?
-  status     AbuseStatus @default(open)
-  createdAt  DateTime    @default(now())
+  status     AbuseStatus @default(OPEN)
+  createdAt  DateTime @default(now())
 }
 
-model Banner {
-  id        BigInt   @id @default(autoincrement())
-  slot      String
-  content   Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum AbuseStatus {
+  OPEN
+  REVIEWING
+  RESOLVED
+  REJECTED
 }
 
 model AuditLog {
-  id        BigInt   @id @default(autoincrement())
-  actorId   BigInt
+  id        BigInt  @id @default(autoincrement()) @db.BigInt
+  actor     User    @relation(name: "Actor", fields: [actorId], references: [id])
+  actorId   BigInt  @db.BigInt
   entity    String
   entityId  BigInt
   diff      Json
   createdAt DateTime @default(now())
-
-  actor     User     @relation("ActorLogs", fields: [actorId], references: [id])
-
-  @@index([actorId])
-  @@index([entity, entityId])
 }
 
 model ArchiveFile {
-  id        BigInt       @id @default(autoincrement())
-  ownerId   BigInt
-  storeId   BigInt?
+  id        BigInt  @id @default(autoincrement()) @db.BigInt
+  owner     User    @relation(fields: [ownerId], references: [id])
+  ownerId   BigInt  @db.BigInt
   fileName  String
   fileType  String
-  size      Int?
+  size      Int
   path      String
-  status    ArchiveStatus @default(active)
-  createdAt DateTime      @default(now())
+  status    ArchiveStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+}
 
-  owner     User          @relation("UserArchiveFiles", fields: [ownerId], references: [id])
-  store     Store?        @relation("StoreArchiveFiles", fields: [storeId], references: [id])
+enum ArchiveStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
 
-  @@index([ownerId])
-  @@index([storeId])
+model Banner {
+  id      BigInt @id @default(autoincrement()) @db.BigInt
+  slot    String
+  content Json
+}
+
+model SavedSearch {
+  id        BigInt  @id @default(autoincrement()) @db.BigInt
+  client    Client  @relation(fields: [clientId], references: [id])
+  clientId  BigInt  @db.BigInt
+  query     Json
+  createdAt DateTime @default(now())
 }
