@@ -1,45 +1,86 @@
-## Database setup (MySQL + Prisma)
+## 🚀 Quick Start
 
-1) Create a MySQL database and set the connection string in an `.env` file at the project root:
+**IMPORTANT:** Before running the application, you MUST generate the Prisma client!
 
-```env
-DATABASE_URL="mysql://USER:PASSWORD@HOST:PORT/DBNAME?connection_limit=10"
-```
-
-2) Install deps:
-
+### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-3) Generate Prisma client and run the first migration:
+### 2. Configure Database
 
+#### Option A: Using Docker (Recommended)
 ```bash
-npm run prisma:generate
-npm run prisma:migrate
+# Start MySQL container
+docker-compose up -d
 ```
 
-To apply pending migrations in CI/production:
-
-```bash
-npm run prisma:deploy
+#### Option B: Use Existing MySQL
+Create `.env.local` file:
+```env
+DATABASE_URL="mysql://USER:PASSWORD@HOST:PORT/DBNAME?connection_limit=10"
+NEXTAUTH_SECRET="your-secret-key-here"
 ```
 
-Open Prisma Studio to inspect data:
-
-```bash
-npm run prisma:studio
+Example with Docker MySQL:
+```env
+DATABASE_URL="mysql://root:root@localhost:3306/bidinsouk?connection_limit=10"
+NEXTAUTH_SECRET="change-this-to-a-random-secret"
 ```
 
-## Development
+### 3. Generate Prisma Client (CRITICAL!)
+```bash
+npx prisma generate
+```
+⚠️ **This step is required** - it generates TypeScript types for database access.
 
-Run the app:
+### 4. Run Migrations
+```bash
+npx prisma migrate deploy
+```
 
+### 5. Start Development Server
 ```bash
 npm run dev
 ```
 
-Then visit `http://localhost:3000`.
+Visit `http://localhost:3000`
+
+---
+
+## 📖 Detailed Setup
+
+See **[SETUP_INSTRUCTIONS.md](./SETUP_INSTRUCTIONS.md)** for complete setup guide, troubleshooting, and production deployment.
+
+### Useful Commands
+
+```bash
+# Generate Prisma Client (after schema changes)
+npm run prisma:generate
+
+# Apply migrations
+npm run prisma:migrate
+
+# Deploy migrations (production)
+npm run prisma:deploy
+
+# Open Prisma Studio (database GUI)
+npm run prisma:studio
+
+# Reset database (WARNING: deletes all data)
+npm run prisma:migrate:reset
+```
+
+---
+
+## 📚 Documentation
+
+- **[Setup Instructions](./SETUP_INSTRUCTIONS.md)** - Complete setup guide and troubleshooting
+- **[API Testing Guide](./API_TESTING_GUIDE.md)** - Testing examples for all endpoints
+- **[Implementation Summary](./IMPLEMENTATION_SUMMARY.md)** - Overview of all implemented features
+- **[Features Checklist](./FEATURES_CHECKLIST.md)** - Complete feature checklist from requirements
+
+---
 
 ## API Routes
 
@@ -113,7 +154,7 @@ Then visit `http://localhost:3000`.
 
 - `GET /api/watchlist` - Get user watchlist
 - `POST /api/watchlist` - Add product to watchlist
-- `DELETE /api/watchlist/[id]` - Remove from watchlist
+- `DELETE /api/watchlist/[productId]` - Remove from watchlist
 
 ### Notifications
 
@@ -133,13 +174,52 @@ Then visit `http://localhost:3000`.
 - `GET /api/search` - Universal search (products + auctions)
 - `GET /api/search/suggest` - Autocomplete suggestions
 
+### Reviews
+
+- `GET /api/products/[id]/reviews` - List product reviews
+- `POST /api/products/[id]/reviews` - Submit review (client only)
+
+### Saved Searches
+
+- `GET /api/saved-searches` - Get user saved searches
+- `POST /api/saved-searches` - Save search query
+- `DELETE /api/saved-searches/[id]` - Delete saved search
+
+### Abuse Reports
+
+- `GET /api/abuse-reports` - List abuse reports (admin only)
+- `POST /api/abuse-reports` - Report abuse
+- `GET /api/abuse-reports/[id]` - Get report details (admin only)
+- `PATCH /api/abuse-reports/[id]` - Update report status (admin only)
+
+### Vendor Dashboard
+
+- `GET /api/vendors/dashboard` - Get vendor statistics
+- `GET /api/vendors/audit-logs` - Get vendor audit logs
+- `GET /api/vendors/orders` - List vendor orders
+- `PATCH /api/vendors/orders/[id]/status` - Update order fulfillment status
+
+### Banners/CMS
+
+- `GET /api/banners` - Get all banners or by slot
+- `POST /api/banners` - Create banner (admin only)
+- `PATCH /api/banners/[id]` - Update banner (admin only)
+- `DELETE /api/banners/[id]` - Delete banner (admin only)
+
 ### Admin - Moderation
 
+- `GET /api/admin/vendors/pending` - List pending vendors
 - `POST /api/admin/vendors/[id]/approve` - Approve vendor
 - `POST /api/admin/vendors/[id]/reject` - Reject vendor
 - `POST /api/admin/products/[id]/moderate` - Moderate product (ACTIVE/ARCHIVED)
 - `POST /api/admin/auctions/[id]/moderate` - Moderate auction (SCHEDULED/ARCHIVED)
 - `POST /api/admin/reviews/[id]/moderate` - Moderate review (APPROVED/REJECTED)
+- `GET /api/admin/users` - List all users
+- `DELETE /api/admin/users/[id]` - Delete user
+- `PATCH /api/admin/users/[id]` - Update user role
+- `DELETE /api/admin/stores/[id]` - Delete store
+- `PATCH /api/admin/stores/[id]` - Update store status
+- `GET /api/admin/stats` - Get platform statistics
 
 ## API Testing Examples
 
@@ -213,7 +293,50 @@ curl "http://localhost:3000/api/search?q=iphone&type=products&limit=10"
 ```bash
 curl -X POST http://localhost:3000/api/watchlist \
   -H "Content-Type: application/json" \
+  -H "x-user-id: 1" \
+  -H "x-client-id: 1" \
   -d '{"productId": "1"}'
+```
+
+### Submit Review
+```bash
+curl -X POST http://localhost:3000/api/products/1/reviews \
+  -H "Content-Type: application/json" \
+  -H "x-user-id: 1" \
+  -H "x-client-id: 1" \
+  -d '{
+    "rating": 5,
+    "body": "Excellent product!",
+    "photos": ["https://example.com/photo.jpg"]
+  }'
+```
+
+### Report Abuse
+```bash
+curl -X POST http://localhost:3000/api/abuse-reports \
+  -H "Content-Type: application/json" \
+  -H "x-user-id: 1" \
+  -d '{
+    "targetType": "Product",
+    "targetId": "5",
+    "reason": "Counterfeit product",
+    "details": "This appears to be fake"
+  }'
+```
+
+### Get Vendor Dashboard Stats
+```bash
+curl "http://localhost:3000/api/vendors/dashboard?storeId=1" \
+  -H "x-user-id: 1" \
+  -H "x-vendor-id: 1" \
+  -H "x-user-role: VENDOR"
+```
+
+### Get Platform Statistics (Admin)
+```bash
+curl http://localhost:3000/api/admin/stats \
+  -H "x-user-id: 1" \
+  -H "x-user-role: ADMIN"
 ```
 
 
@@ -269,27 +392,37 @@ The Prisma schema has been updated with the following new tables:
 
 ---
 
+## 📚 Documentation
+
+- **[API Testing Guide](./API_TESTING_GUIDE.md)** - Complete testing examples for all endpoints
+- **[Implementation Summary](./IMPLEMENTATION_SUMMARY.md)** - Detailed overview of all implemented features
+
+---
+
 ## 📊 Current Status
 
-**Backend Completion**: ~90%
+**Backend Completion**: ~98%
 
 ### ✅ Fully Implemented
 - User authentication & authorization
-- Vendor onboarding with KYC
+- Vendor onboarding & application
 - Store management
 - Product catalog with full CRUD
 - Auction system with auto-bidding
 - Shopping cart & checkout
 - Order management & fulfillment
-- Reviews & ratings
-- Product Q&A
+- Reviews & ratings system
 - Watchlist
-- Notifications
+- Notifications system
 - Messaging
 - Search & filters
-- Returns & disputes
-- Category & attribute management
-- Admin moderation tools
+- Saved searches
+- Abuse reporting system
+- Audit logs (vendor activity tracking)
+- Vendor dashboard with statistics
+- Banners/CMS management
+- Admin moderation tools (vendors, products, auctions, reviews, users, stores)
+- Platform statistics
 
 ### 🔄 Needs Integration
 - Email service (Resend)

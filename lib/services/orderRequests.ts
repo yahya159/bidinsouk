@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { OrderSource } from '@prisma/client'
 import { pusher } from '@/lib/realtime/pusher'
 import { sendNotification } from '@/lib/notifications/helpers'
 import { sendSystemEmail } from '@/lib/email/helpers'
@@ -6,9 +7,9 @@ import { sendSystemEmail } from '@/lib/email/helpers'
 interface CreateOrderRequestInput {
   userId: bigint
   storeId: bigint
-  source: string
+  source: OrderSource
   address: any
-  expiresAt?: Date
+  expressAt?: Date
 }
 
 interface AcceptOrderRequestInput {
@@ -23,7 +24,7 @@ interface RefuseOrderRequestInput {
 }
 
 export async function createOrderRequest(input: CreateOrderRequestInput) {
-  const { userId, storeId, source, address, expiresAt } = input
+  const { userId, storeId, source, address, expressAt } = input
 
   // Create the order request
   const orderRequest = await prisma.orderRequest.create({
@@ -32,9 +33,8 @@ export async function createOrderRequest(input: CreateOrderRequestInput) {
       storeId,
       source,
       address,
-      expiresAt,
-      status: 'requested',
-      requestAt: new Date()
+      expressAt,
+      status: 'REQUESTED'
     }
   })
 
@@ -53,7 +53,7 @@ export async function createOrderRequest(input: CreateOrderRequestInput) {
       // Send notification
       await sendNotification(
         Number(storeOwner.id),
-        'order',
+        'ORDER',
         'New Order Request',
         `A new order request has been created for your store ${store.name}`,
         { orderId: Number(orderRequest.id) }
@@ -92,11 +92,11 @@ export async function acceptOrderRequest(input: AcceptOrderRequestInput) {
   }
 
   // Update the order request status in a transaction
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx: any) => {
     // Update the order request status
     const updatedRequest = await tx.orderRequest.update({
       where: { id: requestId },
-      data: { status: 'seller_accepted' }
+      data: { status: 'SELLER_ACCEPTED' }
     })
 
     // Create the order
@@ -104,7 +104,7 @@ export async function acceptOrderRequest(input: AcceptOrderRequestInput) {
       data: {
         userId: orderRequest.userId,
         storeId: orderRequest.storeId,
-        status: 'pending'
+        status: 'CONFIRMED'
       }
     })
 
@@ -120,7 +120,7 @@ export async function acceptOrderRequest(input: AcceptOrderRequestInput) {
     // Send notification
     await sendNotification(
       Number(client.id),
-      'order',
+      'ORDER',
       'Order Request Accepted',
       `Your order request for store ${store?.name} has been accepted`,
       { orderId: Number(result.order.id) }
@@ -169,8 +169,8 @@ export async function refuseOrderRequest(input: RefuseOrderRequestInput) {
   const updatedRequest = await prisma.orderRequest.update({
     where: { id: requestId },
     data: { 
-      status: 'seller_refused',
-      ...(reason && { details: reason })
+      status: 'SELLER_REFUSED',
+      ...(reason && { notes: reason })
     }
   })
 
@@ -183,7 +183,7 @@ export async function refuseOrderRequest(input: RefuseOrderRequestInput) {
     // Send notification
     await sendNotification(
       Number(client.id),
-      'order',
+      'ORDER',
       'Order Request Refused',
       `Your order request for store ${store?.name} has been refused${reason ? `: ${reason}` : ''}`,
       { orderId: Number(orderRequest.id) }
@@ -210,7 +210,7 @@ export async function expireOrderRequest(requestId: bigint) {
   // Update the order request status
   const updatedRequest = await prisma.orderRequest.update({
     where: { id: requestId },
-    data: { status: 'expired' }
+    data: { status: 'EXPIRED' }
   })
 
   // Get the store
