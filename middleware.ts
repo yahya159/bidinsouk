@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { roleGuard } from '@/lib/auth/middleware'
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
   // Protect admin routes
   if (pathname.startsWith('/admin')) {
-    return roleGuard(request, ['ADMIN'])
+    return await roleGuard(request, ['ADMIN'])
   }
   
   // Protect vendor routes
   if (pathname.startsWith('/vendor')) {
-    return roleGuard(request, ['VENDOR', 'ADMIN'])
+    return await roleGuard(request, ['VENDOR', 'ADMIN'])
   }
   
   return NextResponse.next()

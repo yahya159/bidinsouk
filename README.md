@@ -76,9 +76,62 @@ npm run prisma:migrate:reset
 ## 📚 Documentation
 
 - **[Setup Instructions](./SETUP_INSTRUCTIONS.md)** - Complete setup guide and troubleshooting
+- **[Authentication Guide](./AUTHENTICATION_GUIDE.md)** - Complete authentication setup and usage
 - **[API Testing Guide](./API_TESTING_GUIDE.md)** - Testing examples for all endpoints
 - **[Implementation Summary](./IMPLEMENTATION_SUMMARY.md)** - Overview of all implemented features
 - **[Features Checklist](./FEATURES_CHECKLIST.md)** - Complete feature checklist from requirements
+
+---
+
+## 🔐 Authentication
+
+This application uses **NextAuth.js v4** with credentials-based authentication.
+
+### Quick Start
+
+1. **Environment Setup** - Add to `.env`:
+   ```env
+   NEXTAUTH_URL=http://localhost:3000
+   NEXTAUTH_SECRET=your-super-secret-key-change-this-in-production
+   ```
+
+2. **Frontend Pages**:
+   - Login: `http://localhost:3000/login`
+   - Register: `http://localhost:3000/register`
+
+3. **Test Authentication**:
+   ```bash
+   npx tsx scripts/test-auth.ts
+   ```
+
+### Using Authentication
+
+**In Client Components:**
+```tsx
+'use client'
+import { useSession } from 'next-auth/react'
+
+export default function MyComponent() {
+  const { data: session } = useSession()
+  return <div>Welcome {session?.user?.name}</div>
+}
+```
+
+**In API Routes:**
+```tsx
+import { requireAuth } from '@/lib/auth/api-auth'
+
+export async function GET(req: NextRequest) {
+  const user = await requireAuth(req)
+  // user.userId, user.role, user.email available
+}
+```
+
+**Protected Routes:**
+- `/admin/*` - Admin only
+- `/vendor/*` - Vendor and Admin
+
+See **[AUTHENTICATION_GUIDE.md](./AUTHENTICATION_GUIDE.md)** for complete documentation.
 
 ---
 

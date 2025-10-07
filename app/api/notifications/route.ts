@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserNotifications, markAllAsRead } from '@/lib/services/notifications'
-
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  if (!userId) return null
-  return { userId: BigInt(userId) }
-}
+import { requireAuth } from '@/lib/auth/api-auth'
 
 export async function GET(req: NextRequest) {
   try {
-    const user = getCurrentUser(req)
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const user = await requireAuth(req)
 
     const { searchParams } = new URL(req.url)
     const unreadOnly = searchParams.get('unreadOnly') === 'true'
@@ -18,7 +12,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    const notifications = await getUserNotifications(user.userId, {
+    const notifications = await getUserNotifications(BigInt(user.userId), {
       unreadOnly,
       type,
       limit,
@@ -27,18 +21,23 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ notifications })
   } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
 export async function PATCH(req: NextRequest) {
   try {
-    const user = getCurrentUser(req)
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const user = await requireAuth(req)
 
-    await markAllAsRead(user.userId)
+    await markAllAsRead(BigInt(user.userId))
     return NextResponse.json({ success: true })
   } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

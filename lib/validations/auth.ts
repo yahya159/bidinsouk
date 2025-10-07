@@ -3,10 +3,10 @@ import { z } from 'zod'
 export const RegisterDto = z.object({
   email: z.string().email('Email invalide'),
   name: z.string().min(2, 'Nom requis (min 2 caractères)'),
-  password: z.string().min(8, 'Mot de passe requis (min 8 caractères)'),
+  password: z.string().min(4, 'Mot de passe requis (min 4 caractères)'),
   phone: z.string().optional(),
   locale: z.enum(['fr', 'ar']).default('fr'),
-  acceptTerms: z.boolean().refine(val => val === true, 'Vous devez accepter les CGU')
+  acceptTerms: z.boolean().optional().default(true)
 })
 
 export const LoginDto = z.object({
@@ -25,7 +25,7 @@ export const ForgotPasswordDto = z.object({
 
 export const ResetPasswordDto = z.object({
   token: z.string(),
-  password: z.string().min(8, 'Mot de passe requis (min 8 caractères)')
+  password: z.string().min(4, 'Mot de passe requis (min 4 caractères)')
 })
 
 export const UpdateProfileDto = z.object({
