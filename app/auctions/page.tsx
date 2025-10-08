@@ -1,4 +1,5 @@
 import AuctionCard from '@/components/AuctionCard'
+import { Container, Title, Text, SimpleGrid, Button, Group, Stack } from '@mantine/core'
 
 // Placeholder data - in a real app this would come from an API
 const auctions = [
@@ -60,25 +61,21 @@ const auctions = [
 
 export default function AuctionsPage() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Enchères en cours</h1>
-        <p className="text-gray-600 mt-2">
-          Découvrez les meilleures offres et participez aux enchères en temps réel
-        </p>
-      </div>
+    <Container size="xl" py="xl">
+      <Stack gap="md" mb="md">
+        <Title order={1}>Enchères en cours</Title>
+        <Text c="dimmed">Découvrez les meilleures offres et participez aux enchères en temps réel</Text>
+      </Stack>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
         {auctions.map(auction => (
           <AuctionCard key={auction.id} auction={auction} />
         ))}
-      </div>
+      </SimpleGrid>
       
-      <div className="mt-12 text-center">
-        <button className="px-6 py-3 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors">
-          Voir plus d'enchères
-        </button>
-      </div>
-    </div>
+      <Group justify="center" mt="xl">
+        <Button variant="default">Voir plus d'enchères</Button>
+      </Group>
+    </Container>
   )
 }

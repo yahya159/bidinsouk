@@ -5,8 +5,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { PostMessageDto } from '@/lib/validations/messages'
 import { pusherClient } from '@/lib/realtime/pusher'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button, TextInput, Text, Stack, Group, Box, Paper } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
 
 interface Message {
   id: number
@@ -75,55 +75,61 @@ export default function Chat({ threadId, initialMessages, currentUserId }: ChatP
       
       reset()
     } catch (error) {
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to send message',
+        color: 'red',
+      })
       console.error('Failed to send message:', error)
     }
   }
   
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-4">
+    <Stack h="100%" gap={0}>
+      <Box style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
+        <Stack gap="md">
           {messages.map((message) => (
-            <div
+            <Group
               key={message.id}
-              className={`flex ${message.author.id === currentUserId ? 'justify-end' : 'justify-start'}`}
+              justify={message.author.id === currentUserId ? 'flex-end' : 'flex-start'}
             >
-              <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                  message.author.id === currentUserId
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-200 text-gray-800'
-                }`}
+              <Paper
+                p="sm"
+                radius="md"
+                style={{
+                  maxWidth: '70%',
+                  backgroundColor: message.author.id === currentUserId ? '#228be6' : '#e9ecef',
+                  color: message.author.id === currentUserId ? 'white' : '#212529',
+                }}
               >
-                <div className="font-semibold text-sm">
+                <Text size="sm" fw={600}>
                   {message.author.id === currentUserId ? 'You' : message.author.name}
-                </div>
-                <div className="mt-1">{message.body}</div>
-                <div className="text-xs opacity-70 mt-1">
+                </Text>
+                <Text size="sm" mt={4}>{message.body}</Text>
+                <Text size="xs" opacity={0.7} mt={4}>
                   {new Date(message.createdAt).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
-                </div>
-              </div>
-            </div>
+                </Text>
+              </Paper>
+            </Group>
           ))}
           <div ref={messagesEndRef} />
-        </div>
-      </div>
+        </Stack>
+      </Box>
       
-      <form onSubmit={handleSubmit(onSubmit)} className="border-t p-4">
-        <div className="flex space-x-2">
-          <Input
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <Group gap="xs" p="md" style={{ borderTop: '1px solid #dee2e6' }}>
+          <TextInput
             placeholder="Type a message..."
             {...register('body')}
+            error={errors.body?.message as string}
+            style={{ flex: 1 }}
           />
-          {errors.body && (
-            <p className="text-red-500 text-sm mt-1">{errors.body.message}</p>
-          )}
           <Button type="submit">Send</Button>
-        </div>
+        </Group>
       </form>
-    </div>
+    </Stack>
   )
 }

@@ -1,5 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, Button, Container, Title, Text, Stack, Group, SimpleGrid } from '@mantine/core'
 
 export default function AdminDashboard() {
   // Placeholder data - in a real app this would come from an API
@@ -11,100 +10,84 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Tableau de bord administrateur</h1>
+    <Container size="xl" py="xl">
+      <Title order={1} mb="xl">Tableau de bord administrateur</Title>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.users}</CardTitle>
-            <CardDescription className="text-center">Utilisateurs</CardDescription>
-          </CardHeader>
+      <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg" mb="xl">
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.users}</Title>
+          <Text size="sm" c="dimmed">Utilisateurs</Text>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.vendors}</CardTitle>
-            <CardDescription className="text-center">Vendeurs</CardDescription>
-          </CardHeader>
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.vendors}</Title>
+          <Text size="sm" c="dimmed">Vendeurs</Text>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.products}</CardTitle>
-            <CardDescription className="text-center">Produits</CardDescription>
-          </CardHeader>
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.products}</Title>
+          <Text size="sm" c="dimmed">Produits</Text>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.auctions}</CardTitle>
-            <CardDescription className="text-center">Enchères</CardDescription>
-          </CardHeader>
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.auctions}</Title>
+          <Text size="sm" c="dimmed">Enchères</Text>
         </Card>
-      </div>
+      </SimpleGrid>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Demandes de vendeurs</CardTitle>
-            <CardDescription>À approuver ou rejeter</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-medium">Karim Boutique</h3>
-                  <p className="text-sm text-gray-500">karim@example.com</p>
-                </div>
-                <div className="space-x-2">
-                  <Button variant="outline" size="sm">Approuver</Button>
-                  <Button variant="outline" size="sm">Rejeter</Button>
-                </div>
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
+        <Card padding="lg">
+          <Title order={3} mb="xs">Demandes de vendeurs</Title>
+          <Text size="sm" c="dimmed" mb="lg">À approuver ou rejeter</Text>
+          <Stack gap="md">
+            <Group justify="space-between" p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <div>
+                <Text fw={500}>Karim Boutique</Text>
+                <Text size="sm" c="dimmed">karim@example.com</Text>
               </div>
-              
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-medium">Fatima Électronique</h3>
-                  <p className="text-sm text-gray-500">fatima@example.com</p>
-                </div>
-                <div className="space-x-2">
-                  <Button variant="outline" size="sm">Approuver</Button>
-                  <Button variant="outline" size="sm">Rejeter</Button>
-                </div>
+              <Group gap="xs">
+                <Button variant="outline" size="sm">Approuver</Button>
+                <Button variant="outline" size="sm" color="red">Rejeter</Button>
+              </Group>
+            </Group>
+            
+            <Group justify="space-between" p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <div>
+                <Text fw={500}>Fatima Électronique</Text>
+                <Text size="sm" c="dimmed">fatima@example.com</Text>
               </div>
-            </div>
-          </CardContent>
+              <Group gap="xs">
+                <Button variant="outline" size="sm">Approuver</Button>
+                <Button variant="outline" size="sm" color="red">Rejeter</Button>
+              </Group>
+            </Group>
+          </Stack>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Signalements</CardTitle>
-            <CardDescription>Contenu signalé par les utilisateurs</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center p-4 border rounded-lg">
-                <div className="flex-grow">
-                  <h3 className="font-medium">Produit suspect</h3>
-                  <p className="text-sm text-gray-500">Signalé par: Youssef M.</p>
-                  <p className="text-sm text-gray-500">Raison: Contrefaçon</p>
-                </div>
-                <Button variant="outline">Voir</Button>
+        <Card padding="lg">
+          <Title order={3} mb="xs">Signalements</Title>
+          <Text size="sm" c="dimmed" mb="lg">Contenu signalé par les utilisateurs</Text>
+          <Stack gap="md">
+            <Group justify="space-between" p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <div>
+                <Text fw={500}>Produit suspect</Text>
+                <Text size="sm" c="dimmed">Signalé par: Youssef M.</Text>
+                <Text size="sm" c="dimmed">Raison: Contrefaçon</Text>
               </div>
-              
-              <div className="flex items-center p-4 border rounded-lg">
-                <div className="flex-grow">
-                  <h3 className="font-medium">Avis inapproprié</h3>
-                  <p className="text-sm text-gray-500">Signalé par: Amina K.</p>
-                  <p className="text-sm text-gray-500">Raison: Langage offensant</p>
-                </div>
-                <Button variant="outline">Voir</Button>
+              <Button variant="outline">Voir</Button>
+            </Group>
+            
+            <Group justify="space-between" p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <div>
+                <Text fw={500}>Avis inapproprié</Text>
+                <Text size="sm" c="dimmed">Signalé par: Amina K.</Text>
+                <Text size="sm" c="dimmed">Raison: Langage offensant</Text>
               </div>
-            </div>
-          </CardContent>
+              <Button variant="outline">Voir</Button>
+            </Group>
+          </Stack>
         </Card>
-      </div>
-    </div>
+      </SimpleGrid>
+    </Container>
   )
 }

@@ -1,34 +1,34 @@
 'use client'
 
 import { useSession, signOut } from 'next-auth/react'
-import { Button } from '@/components/ui/button'
+import { Button, Group, Text, Loader } from '@mantine/core'
 import Link from 'next/link'
 
 export function AuthStatus() {
   const { data: session, status } = useSession()
 
   if (status === 'loading') {
-    return <div className="text-sm text-gray-500">Loading...</div>
+    return <Loader size="sm" />
   }
 
   if (status === 'unauthenticated') {
     return (
-      <div className="flex gap-2">
-        <Link href="/login">
-          <Button variant="outline" size="sm">Login</Button>
-        </Link>
-        <Link href="/register">
-          <Button size="sm">Register</Button>
-        </Link>
-      </div>
+      <Group gap="xs">
+        <Button component={Link} href="/login" variant="outline" size="sm">
+          Login
+        </Button>
+        <Button component={Link} href="/register" size="sm">
+          Register
+        </Button>
+      </Group>
     )
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="text-sm">
-        <div className="font-medium">{session?.user?.name}</div>
-        <div className="text-xs text-gray-500">{session?.user?.role}</div>
+    <Group gap="md">
+      <div>
+        <Text size="sm" fw={500}>{session?.user?.name}</Text>
+        <Text size="xs" c="dimmed">{session?.user?.role}</Text>
       </div>
       <Button 
         variant="outline" 
@@ -37,6 +37,6 @@ export function AuthStatus() {
       >
         Sign Out
       </Button>
-    </div>
+    </Group>
   )
 }

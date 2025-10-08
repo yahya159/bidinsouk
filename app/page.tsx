@@ -1,9 +1,9 @@
 import { getSession } from '@/lib/auth/session'
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button, Card, Title, Text, Container, Group, Stack, SimpleGrid } from '@mantine/core';
 import AuctionCard from "@/components/AuctionCard";
 import ProductCard from "@/components/ProductCard";
 import { listAuctions } from "@/lib/services/auctions";
+import ImageCarousel from '@/components/shared/ImageCarousel';
 
 export default async function Home() {
   const session = await getSession()
@@ -11,99 +11,127 @@ export default async function Home() {
   const { auctions: endingSoon } = await listAuctions({ status: 'ENDING_SOON', page: 1, limit: 8 })
 
   return (
-    <div className="min-h-screen">
-      <section className="relative">
-        <div className="h-[360px] w-full bg-gradient-to-r from-orange-500 to-amber-600 text-white">
-          <div className="container mx-auto px-4 h-full flex flex-col items-center justify-center text-center">
-            <h1 className="text-4xl md:text-5xl font-extrabold mb-3">Découvrez les Meilleures Enchères</h1>
-            <p className="text-lg md:text-xl opacity-90 mb-6">Trouvez des articles uniques aux meilleurs prix</p>
-            <Button asChild className="bg-white text-orange-600 hover:bg-white/90 font-semibold">
-              <a href="/auctions">ENCHÉRIR</a>
-            </Button>
-          </div>
-        </div>
+    <div style={{ minHeight: '100vh' }}>
+      <section>
+        <ImageCarousel
+          items={[
+            {
+              imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1600&auto=format&fit=crop',
+              title: 'Découvrez les Meilleures Enchères',
+              subtitle: "Trouvez des articles uniques aux meilleurs prix",
+              ctaHref: '/auctions',
+              ctaLabel: 'ENCHÉRIR',
+            },
+            {
+              imageUrl: 'https://images.unsplash.com/photo-1520975624749-5f59f6dc0460?q=80&w=1600&auto=format&fit=crop',
+              title: "C'est le moment de",
+              subtitle: 'Déposer une enchère',
+              ctaHref: '/auctions',
+              ctaLabel: 'Déposer une enchère',
+            },
+            {
+              imageUrl: 'https://images.unsplash.com/photo-1545235617-9465d2a55698?q=80&w=1600&auto=format&fit=crop',
+              title: 'Des offres nouvelles chaque jour',
+              subtitle: 'Électronique, Mode, Maison et plus',
+              ctaHref: '/auctions',
+              ctaLabel: 'Parcourir',
+            },
+          ]}
+        />
       </section>
 
-      <section className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Ending Soon</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {endingSoon.map((a: any) => (
-            <AuctionCard key={a.id} auction={a} />
-          ))}
-        </div>
-      </section>
+      <Container size="xl" py="xl">
+        <Stack gap="xl">
+          <section>
+            <Group justify="space-between" mb="md">
+              <Title order={2} size="xl">Ending Soon</Title>
+            </Group>
+            <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="lg">
+              {endingSoon.map((a: any) => (
+                <AuctionCard key={a.id} auction={a} />
+              ))}
+            </SimpleGrid>
+          </section>
 
-      <section className="container mx-auto px-4 py-2">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Enchères en Direct</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {liveAuctions.map((a: any) => (
-            <AuctionCard key={a.id} auction={a} />
-          ))}
-        </div>
-      </section>
+          <section>
+            <Group justify="space-between" mb="md">
+              <Title order={2} size="xl">Enchères en Direct</Title>
+            </Group>
+            <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="lg">
+              {liveAuctions.map((a: any) => (
+                <AuctionCard key={a.id} auction={a} />
+              ))}
+            </SimpleGrid>
+          </section>
+        </Stack>
+      </Container>
 
-      <section className="py-12 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-xl font-semibold mb-6">Catégories populaires</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-4">
+      <section style={{ padding: '3rem 0', backgroundColor: '#f9fafb' }}>
+        <Container size="xl">
+          <Title order={2} size="xl" mb="xl">Catégories populaires</Title>
+          <SimpleGrid cols={{ base: 2, sm: 3, md: 5, lg: 5 }} spacing="md">
             {['Femmes','Vins','Chaussures','Livres','Vêtements','Bébé','Maison','Montres','Sport','Art'].map((c) => (
-              <div key={c} className="rounded-xl bg-white border p-4 text-center text-sm hover:shadow">
-                {c}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="py-12">
-        <div className="container mx-auto px-4">
-          <h2 className="text-xl font-semibold text-center mb-8">Pourquoi Bidinsouk ?</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card><CardHeader><CardTitle>Achats sécurisés</CardTitle></CardHeader><CardContent>Paiement 100% sécurisé avec protection acheteur</CardContent></Card>
-            <Card><CardHeader><CardTitle>Vendeurs vérifiés</CardTitle></CardHeader><CardContent>Nos vendeurs sont authentifiés et notés</CardContent></Card>
-            <Card><CardHeader><CardTitle>Livraison rapide</CardTitle></CardHeader><CardContent>Sous 24-48h dans tout le Maroc</CardContent></Card>
-            <Card><CardHeader><CardTitle>Service client</CardTitle></CardHeader><CardContent>Support 7/7 en français et arabe</CardContent></Card>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-12 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-xl font-semibold text-center mb-8">Avis vérifiés</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1,2,3].map(i => (
-              <Card key={i}>
-                <CardHeader>
-                  <CardTitle className="text-base">Client satisfait #{i}</CardTitle>
-                  <CardDescription>03/10/2025</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  Excellente plateforme d'enchères. Interface intuitive et processus d'achat sécurisés.
-                </CardContent>
+              <Card key={c} padding="md" style={{ textAlign: 'center', cursor: 'pointer' }}>
+                <Text size="sm">{c}</Text>
               </Card>
             ))}
-          </div>
-          <div className="text-center mt-8">
+          </SimpleGrid>
+        </Container>
+      </section>
+
+      <Container size="xl" py="xl">
+        <Title order={2} size="xl" ta="center" mb="xl">Pourquoi Bidinsouk ?</Title>
+        <SimpleGrid cols={{ base: 1, md: 2, lg: 4 }} spacing="lg">
+          <Card padding="lg" style={{ height: '100%' }}>
+            <Title order={4} mb="sm">Achats sécurisés</Title>
+            <Text size="sm">Paiement 100% sécurisé avec protection acheteur</Text>
+          </Card>
+          <Card padding="lg" style={{ height: '100%' }}>
+            <Title order={4} mb="sm">Vendeurs vérifiés</Title>
+            <Text size="sm">Nos vendeurs sont authentifiés et notés</Text>
+          </Card>
+          <Card padding="lg" style={{ height: '100%' }}>
+            <Title order={4} mb="sm">Livraison rapide</Title>
+            <Text size="sm">Sous 24-48h dans tout le Maroc</Text>
+          </Card>
+          <Card padding="lg" style={{ height: '100%' }}>
+            <Title order={4} mb="sm">Service client</Title>
+            <Text size="sm">Support 7/7 en français et arabe</Text>
+          </Card>
+        </SimpleGrid>
+      </Container>
+
+      <section style={{ padding: '3rem 0', backgroundColor: '#f9fafb' }}>
+        <Container size="xl">
+          <Title order={2} size="xl" ta="center" mb="xl">Avis vérifiés</Title>
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+            {[1,2,3].map(i => (
+              <Card key={i} padding="lg" style={{ height: '100%' }}>
+                <Title order={5} mb="xs">Client satisfait #{i}</Title>
+                <Text size="sm" c="dimmed" mb="md">03/10/2025</Text>
+                <Text size="sm">
+                  Excellente plateforme d'enchères. Interface intuitive et processus d'achat sécurisés.
+                </Text>
+              </Card>
+            ))}
+          </SimpleGrid>
+          <Group justify="center" mt="xl">
             {session?.user ? (
-              <Button asChild>
-                <a href="/auctions">Parcourir les enchères</a>
+              <Button component="a" href="/auctions" size="lg">
+                Parcourir les enchères
               </Button>
             ) : (
-              <div className="flex items-center justify-center gap-3">
-                <Button asChild>
-                  <a href="/register">Inscrivez-vous maintenant</a>
+              <Group>
+                <Button component="a" href="/register" size="lg">
+                  Inscrivez-vous maintenant
                 </Button>
-                <Button asChild variant="outline">
-                  <a href="/login">Se connecter</a>
+                <Button component="a" href="/login" size="lg" variant="outline">
+                  Se connecter
                 </Button>
-              </div>
+              </Group>
             )}
-          </div>
-        </div>
+          </Group>
+        </Container>
       </section>
     </div>
   );

@@ -1,4 +1,5 @@
 import ProductCard from '@/components/ProductCard'
+import { Container, Title, Text, SimpleGrid, Button, Group, Stack } from '@mantine/core'
 
 // Placeholder data - in a real app this would come from an API
 const products = [
@@ -60,25 +61,21 @@ const products = [
 
 export default function ProductsPage() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Produits à vendre</h1>
-        <p className="text-gray-600 mt-2">
-          Découvrez nos produits neufs et d'occasion à des prix compétitifs
-        </p>
-      </div>
+    <Container size="xl" py="xl">
+      <Stack gap="md" mb="md">
+        <Title order={1}>Produits à vendre</Title>
+        <Text c="dimmed">Découvrez nos produits neufs et d'occasion à des prix compétitifs</Text>
+      </Stack>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
         {products.map(product => (
           <ProductCard key={product.id} product={product} />
         ))}
-      </div>
+      </SimpleGrid>
       
-      <div className="mt-12 text-center">
-        <button className="px-6 py-3 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors">
-          Voir plus de produits
-        </button>
-      </div>
-    </div>
+      <Group justify="center" mt="xl">
+        <Button variant="default">Voir plus de produits</Button>
+      </Group>
+    </Container>
   )
 }

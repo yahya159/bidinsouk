@@ -1,5 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, Button, Container, Title, Text, Stack, Group, Avatar, SimpleGrid } from '@mantine/core'
 
 export default function ClientDashboard() {
   // Placeholder data - in a real app this would come from an API
@@ -11,100 +10,84 @@ export default function ClientDashboard() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Tableau de bord client</h1>
+    <Container size="xl" py="xl">
+      <Title order={1} mb="xl">Tableau de bord client</Title>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.activeBids}</CardTitle>
-            <CardDescription className="text-center">Enchères actives</CardDescription>
-          </CardHeader>
+      <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg" mb="xl">
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.activeBids}</Title>
+          <Text size="sm" c="dimmed">Enchères actives</Text>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.watchlistItems}</CardTitle>
-            <CardDescription className="text-center">Articles surveillés</CardDescription>
-          </CardHeader>
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.watchlistItems}</Title>
+          <Text size="sm" c="dimmed">Articles surveillés</Text>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.orders}</CardTitle>
-            <CardDescription className="text-center">Commandes</CardDescription>
-          </CardHeader>
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.orders}</Title>
+          <Text size="sm" c="dimmed">Commandes</Text>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.savedSearches}</CardTitle>
-            <CardDescription className="text-center">Recherches sauvegardées</CardDescription>
-          </CardHeader>
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.savedSearches}</Title>
+          <Text size="sm" c="dimmed">Recherches sauvegardées</Text>
         </Card>
-      </div>
+      </SimpleGrid>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Enchères actives</CardTitle>
-            <CardDescription>Vos enchères en cours</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center p-4 border rounded-lg">
-                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16 mr-4" />
-                <div className="flex-grow">
-                  <h3 className="font-medium">iPhone 15 Pro Max</h3>
-                  <p className="text-sm text-gray-500">Votre enchère: 10,200 MAD</p>
-                  <p className="text-sm text-gray-500">Temps restant: 1j 4h</p>
-                </div>
-                <Button variant="outline">Voir</Button>
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
+        <Card padding="lg">
+          <Title order={3} mb="xs">Enchères actives</Title>
+          <Text size="sm" c="dimmed" mb="lg">Vos enchères en cours</Text>
+          <Stack gap="md">
+            <Group p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <Avatar size={64} radius="md" />
+              <div style={{ flex: 1 }}>
+                <Text fw={500}>iPhone 15 Pro Max</Text>
+                <Text size="sm" c="dimmed">Votre enchère: 10,200 MAD</Text>
+                <Text size="sm" c="dimmed">Temps restant: 1j 4h</Text>
               </div>
-              
-              <div className="flex items-center p-4 border rounded-lg">
-                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16 mr-4" />
-                <div className="flex-grow">
-                  <h3 className="font-medium">MacBook Pro M2</h3>
-                  <p className="text-sm text-gray-500">Votre enchère: 19,500 MAD</p>
-                  <p className="text-sm text-gray-500">Temps restant: 3j 12h</p>
-                </div>
-                <Button variant="outline">Voir</Button>
+              <Button variant="outline">Voir</Button>
+            </Group>
+            
+            <Group p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <Avatar size={64} radius="md" />
+              <div style={{ flex: 1 }}>
+                <Text fw={500}>MacBook Pro M2</Text>
+                <Text size="sm" c="dimmed">Votre enchère: 19,500 MAD</Text>
+                <Text size="sm" c="dimmed">Temps restant: 3j 12h</Text>
               </div>
-            </div>
-          </CardContent>
+              <Button variant="outline">Voir</Button>
+            </Group>
+          </Stack>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Articles surveillés</CardTitle>
-            <CardDescription>Vos articles favoris</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center p-4 border rounded-lg">
-                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16 mr-4" />
-                <div className="flex-grow">
-                  <h3 className="font-medium">Casque Audio Sony</h3>
-                  <p className="text-sm text-gray-500">Prix: 2,200 MAD</p>
-                  <p className="text-sm text-green-600">En stock</p>
-                </div>
-                <Button variant="outline">Voir</Button>
+        <Card padding="lg">
+          <Title order={3} mb="xs">Articles surveillés</Title>
+          <Text size="sm" c="dimmed" mb="lg">Vos articles favoris</Text>
+          <Stack gap="md">
+            <Group p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <Avatar size={64} radius="md" />
+              <div style={{ flex: 1 }}>
+                <Text fw={500}>Casque Audio Sony</Text>
+                <Text size="sm" c="dimmed">Prix: 2,200 MAD</Text>
+                <Text size="sm" c="green">En stock</Text>
               </div>
-              
-              <div className="flex items-center p-4 border rounded-lg">
-                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16 mr-4" />
-                <div className="flex-grow">
-                  <h3 className="font-medium">Montre Apple Watch</h3>
-                  <p className="text-sm text-gray-500">Prix: 2,800 MAD</p>
-                  <p className="text-sm text-green-600">En stock</p>
-                </div>
-                <Button variant="outline">Voir</Button>
+              <Button variant="outline">Voir</Button>
+            </Group>
+            
+            <Group p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <Avatar size={64} radius="md" />
+              <div style={{ flex: 1 }}>
+                <Text fw={500}>Montre Apple Watch</Text>
+                <Text size="sm" c="dimmed">Prix: 2,800 MAD</Text>
+                <Text size="sm" c="green">En stock</Text>
               </div>
-            </div>
-          </CardContent>
+              <Button variant="outline">Voir</Button>
+            </Group>
+          </Stack>
         </Card>
-      </div>
-    </div>
+      </SimpleGrid>
+    </Container>
   )
 }

@@ -1,5 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, Button, Container, Title, Text, Stack, Group, Avatar, Badge, SimpleGrid } from '@mantine/core'
 
 export default function VendorDashboard() {
   // Placeholder data - in a real app this would come from an API
@@ -11,111 +10,91 @@ export default function VendorDashboard() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Tableau de bord vendeur</h1>
+    <Container size="xl" py="xl">
+      <Title order={1} mb="xl">Tableau de bord vendeur</Title>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.products}</CardTitle>
-            <CardDescription className="text-center">Produits</CardDescription>
-          </CardHeader>
+      <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg" mb="xl">
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.products}</Title>
+          <Text size="sm" c="dimmed">Produits</Text>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.auctions}</CardTitle>
-            <CardDescription className="text-center">Enchères</CardDescription>
-          </CardHeader>
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.auctions}</Title>
+          <Text size="sm" c="dimmed">Enchères</Text>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.orders}</CardTitle>
-            <CardDescription className="text-center">Commandes</CardDescription>
-          </CardHeader>
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.orders}</Title>
+          <Text size="sm" c="dimmed">Commandes</Text>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">{stats.revenue} MAD</CardTitle>
-            <CardDescription className="text-center">Revenus ce mois</CardDescription>
-          </CardHeader>
+        <Card padding="lg" ta="center">
+          <Title order={2}>{stats.revenue} MAD</Title>
+          <Text size="sm" c="dimmed">Revenus ce mois</Text>
         </Card>
-      </div>
+      </SimpleGrid>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Commandes récentes</CardTitle>
-            <CardDescription>Dernières commandes à traiter</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-medium">Commande #12345</h3>
-                  <p className="text-sm text-gray-500">2 articles - 4,500 MAD</p>
-                </div>
-                <div className="text-right">
-                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
-                    En attente
-                  </span>
-                  <Button variant="outline" size="sm" className="mt-2">Voir</Button>
-                </div>
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mb="xl">
+        <Card padding="lg">
+          <Title order={3} mb="xs">Commandes récentes</Title>
+          <Text size="sm" c="dimmed" mb="lg">Dernières commandes à traiter</Text>
+          <Stack gap="md">
+            <Group justify="space-between" p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <div>
+                <Text fw={500}>Commande #12345</Text>
+                <Text size="sm" c="dimmed">2 articles - 4,500 MAD</Text>
               </div>
-              
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-medium">Commande #12344</h3>
-                  <p className="text-sm text-gray-500">1 article - 2,200 MAD</p>
-                </div>
-                <div className="text-right">
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                    Expédiée
-                  </span>
-                  <Button variant="outline" size="sm" className="mt-2">Voir</Button>
-                </div>
+              <div style={{ textAlign: 'right' }}>
+                <Badge color="yellow" mb="xs">En attente</Badge>
+                <Button variant="outline" size="sm" fullWidth>Voir</Button>
               </div>
-            </div>
-          </CardContent>
+            </Group>
+            
+            <Group justify="space-between" p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <div>
+                <Text fw={500}>Commande #12344</Text>
+                <Text size="sm" c="dimmed">1 article - 2,200 MAD</Text>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <Badge color="green" mb="xs">Expédiée</Badge>
+                <Button variant="outline" size="sm" fullWidth>Voir</Button>
+              </div>
+            </Group>
+          </Stack>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Enchères en cours</CardTitle>
-            <CardDescription>Vos enchères actives</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center p-4 border rounded-lg">
-                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16 mr-4" />
-                <div className="flex-grow">
-                  <h3 className="font-medium">iPhone 15 Pro Max</h3>
-                  <p className="text-sm text-gray-500">Prix actuel: 10,200 MAD</p>
-                  <p className="text-sm text-gray-500">Temps restant: 1j 4h</p>
-                </div>
-                <Button variant="outline">Voir</Button>
+        <Card padding="lg">
+          <Title order={3} mb="xs">Enchères en cours</Title>
+          <Text size="sm" c="dimmed" mb="lg">Vos enchères actives</Text>
+          <Stack gap="md">
+            <Group p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <Avatar size={64} radius="md" />
+              <div style={{ flex: 1 }}>
+                <Text fw={500}>iPhone 15 Pro Max</Text>
+                <Text size="sm" c="dimmed">Prix actuel: 10,200 MAD</Text>
+                <Text size="sm" c="dimmed">Temps restant: 1j 4h</Text>
               </div>
-              
-              <div className="flex items-center p-4 border rounded-lg">
-                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16 mr-4" />
-                <div className="flex-grow">
-                  <h3 className="font-medium">MacBook Pro M2</h3>
-                  <p className="text-sm text-gray-500">Prix actuel: 19,500 MAD</p>
-                  <p className="text-sm text-gray-500">Temps restant: 3j 12h</p>
-                </div>
-                <Button variant="outline">Voir</Button>
+              <Button variant="outline">Voir</Button>
+            </Group>
+            
+            <Group p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
+              <Avatar size={64} radius="md" />
+              <div style={{ flex: 1 }}>
+                <Text fw={500}>MacBook Pro M2</Text>
+                <Text size="sm" c="dimmed">Prix actuel: 19,500 MAD</Text>
+                <Text size="sm" c="dimmed">Temps restant: 3j 12h</Text>
               </div>
-            </div>
-          </CardContent>
+              <Button variant="outline">Voir</Button>
+            </Group>
+          </Stack>
         </Card>
-      </div>
+      </SimpleGrid>
       
-      <div className="mt-8 text-center">
-        <Button className="mr-4">Ajouter un produit</Button>
-        <Button variant="outline">Créer une enchère</Button>
-      </div>
-    </div>
+      <Group justify="center">
+        <Button size="md">Ajouter un produit</Button>
+        <Button size="md" variant="outline">Créer une enchère</Button>
+      </Group>
+    </Container>
   )
 }

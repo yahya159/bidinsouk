@@ -2,10 +2,9 @@
 
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button, TextInput, Card, Title, Text, Stack, Alert, Anchor, Center } from '@mantine/core'
 import { useRouter } from 'next/navigation'
+import { IconAlertCircle } from '@tabler/icons-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -42,53 +41,58 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Login</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {error}
-              </div>
-            )}
-            <div>
-              <Input
+    <Center style={{ minHeight: '100vh', padding: '1rem' }}>
+      <Card shadow="sm" padding="xl" radius="md" withBorder style={{ width: '100%', maxWidth: '28rem' }}>
+        <Stack gap="lg">
+          <div>
+            <Title order={2}>Login</Title>
+            <Text size="sm" c="dimmed" mt="xs">
+              Enter your credentials to access your account
+            </Text>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <Stack gap="md">
+              {error && (
+                <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+                  {error}
+                </Alert>
+              )}
+
+              <TextInput
                 type="email"
-                placeholder="Email"
+                label="Email"
+                placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
               />
-            </div>
-            <div>
-              <Input
+
+              <TextInput
                 type="password"
-                placeholder="Password"
+                label="Password"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
               />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Logging in...' : 'Login'}
-            </Button>
+
+              <Button type="submit" fullWidth loading={loading}>
+                {loading ? 'Logging in...' : 'Login'}
+              </Button>
+            </Stack>
           </form>
-          <div className="mt-4 text-center">
-            <p className="text-sm">
-              Don't have an account?{' '}
-              <a href="/register" className="text-blue-500 hover:underline">
-                Register
-              </a>
-            </p>
-          </div>
-        </CardContent>
+
+          <Text size="sm" ta="center">
+            Don't have an account?{' '}
+            <Anchor href="/register" size="sm">
+              Register
+            </Anchor>
+          </Text>
+        </Stack>
       </Card>
-    </div>
+    </Center>
   )
 }

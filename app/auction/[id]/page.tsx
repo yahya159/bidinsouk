@@ -1,4 +1,5 @@
-import { Button } from "@/components/ui/button";
+import { Button, Container, Title, Text, Group, Badge, Box, NumberInput, Card, Table, ActionIcon, Stack, SimpleGrid } from '@mantine/core';
+import { IconHeart } from '@tabler/icons-react';
 
 // Placeholder data - in a real app this would come from an API
 const auction = {
@@ -38,135 +39,113 @@ export default function AuctionDetailPage() {
   const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
   
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <Container size="xl" py="xl">
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="xl">
         {/* Image Gallery */}
         <div>
-          <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-96 mb-4" />
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-24" />
-            <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-24" />
-            <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-24" />
-          </div>
+          <Box style={{ backgroundColor: '#f1f3f5', border: '2px dashed #dee2e6', borderRadius: '12px', height: '400px' }} mb="md" />
+          <SimpleGrid cols={3} spacing="sm">
+            <Box style={{ backgroundColor: '#f1f3f5', border: '2px dashed #dee2e6', borderRadius: '12px', height: '100px' }} />
+            <Box style={{ backgroundColor: '#f1f3f5', border: '2px dashed #dee2e6', borderRadius: '12px', height: '100px' }} />
+            <Box style={{ backgroundColor: '#f1f3f5', border: '2px dashed #dee2e6', borderRadius: '12px', height: '100px' }} />
+          </SimpleGrid>
         </div>
         
         {/* Auction Details */}
         <div>
-          <div className="flex justify-between items-start mb-4">
+          <Group justify="space-between" mb="md">
             <div>
-              <h1 className="text-3xl font-bold mb-2">{auction.title}</h1>
-              <div className="flex items-center gap-4 mb-4">
-                <span className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded">
-                  {auction.condition}
-                </span>
-                <span className="text-gray-600">Par <a href="#" className="text-blue-600 hover:underline">{auction.store.name}</a></span>
-              </div>
+              <Title order={1} mb="xs">{auction.title}</Title>
+              <Group gap="md" mb="md">
+                <Badge>{auction.condition}</Badge>
+                <Text size="sm" c="dimmed">Par <Text component="span" c="blue" style={{ cursor: 'pointer' }}>{auction.store.name}</Text></Text>
+              </Group>
             </div>
-            <button className="p-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </button>
-          </div>
+            <ActionIcon variant="outline" size="lg">
+              <IconHeart size={20} />
+            </ActionIcon>
+          </Group>
           
-          <p className="text-gray-700 mb-6">{auction.description}</p>
+          <Text mb="xl">{auction.description}</Text>
           
-          <div className="bg-gray-50 p-6 rounded-lg mb-6">
-            <div className="flex justify-between items-center mb-4">
+          <Card padding="lg" mb="xl" style={{ backgroundColor: '#f8f9fa' }}>
+            <Group justify="space-between" mb="md">
               <div>
-                <p className="text-gray-600">Prix actuel</p>
-                <p className="text-3xl font-bold text-blue-600">{auction.currentPrice} MAD</p>
+                <Text size="sm" c="dimmed">Prix actuel</Text>
+                <Title order={2} c="blue">{auction.currentPrice} MAD</Title>
               </div>
-              <div className="text-right">
-                <p className="text-gray-600">Prochaine enchère</p>
-                <p className="text-xl font-semibold">{auction.currentPrice + auction.minIncrement} MAD</p>
+              <div style={{ textAlign: 'right' }}>
+                <Text size="sm" c="dimmed">Prochaine enchère</Text>
+                <Title order={4}>{auction.currentPrice + auction.minIncrement} MAD</Title>
               </div>
-            </div>
+            </Group>
             
-            <div className="mb-6">
-              <div className="flex justify-between text-sm mb-1">
-                <span>Temps restant</span>
-                <span className="font-medium">
+            <Box mb="lg">
+              <Group justify="space-between" mb="xs">
+                <Text size="sm">Temps restant</Text>
+                <Text size="sm" fw={500}>
                   {days > 0 ? `${days}j ${hours}h` : `${hours}h ${minutes}m`}
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
+                </Text>
+              </Group>
+              <div style={{ width: '100%', backgroundColor: '#e9ecef', borderRadius: '10px', height: '12px' }}>
                 <div 
-                  className="bg-blue-600 h-3 rounded-full" 
-                  style={{ width: `${Math.min(100, Math.max(0, 100 - (timeLeft / (1000 * 60 * 60 * 24 * 10))))}%` }}
-                ></div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Votre enchère (MAD)
-                </label>
-                <input 
-                  type="number" 
-                  min={auction.currentPrice + auction.minIncrement}
-                  defaultValue={auction.currentPrice + auction.minIncrement}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ 
+                    width: `${Math.min(100, Math.max(0, 100 - (timeLeft / (1000 * 60 * 60 * 24 * 10))))}%`,
+                    backgroundColor: '#228be6',
+                    height: '12px',
+                    borderRadius: '10px'
+                  }}
                 />
               </div>
-              <div className="flex items-end">
-                <Button className="w-full py-2">
-                  Placer une enchère
-                </Button>
-              </div>
-            </div>
-          </div>
+            </Box>
+            
+            <SimpleGrid cols={2} spacing="md">
+              <NumberInput
+                label="Votre enchère (MAD)"
+                min={auction.currentPrice + auction.minIncrement}
+                defaultValue={auction.currentPrice + auction.minIncrement}
+              />
+              <Button fullWidth mt={24}>Placer une enchère</Button>
+            </SimpleGrid>
+          </Card>
           
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="border rounded-lg p-4">
-              <p className="text-sm text-gray-600">Marque</p>
-              <p className="font-medium">{auction.brand}</p>
-            </div>
-            <div className="border rounded-lg p-4">
-              <p className="text-sm text-gray-600">Catégorie</p>
-              <p className="font-medium">{auction.category}</p>
-            </div>
-          </div>
+          <SimpleGrid cols={2} spacing="md">
+            <Card padding="md">
+              <Text size="sm" c="dimmed">Marque</Text>
+              <Text fw={500}>{auction.brand}</Text>
+            </Card>
+            <Card padding="md">
+              <Text size="sm" c="dimmed">Catégorie</Text>
+              <Text fw={500}>{auction.category}</Text>
+            </Card>
+          </SimpleGrid>
         </div>
-      </div>
+      </SimpleGrid>
       
       {/* Bid History */}
-      <div className="mt-12">
-        <h2 className="text-2xl font-bold mb-6">Historique des enchères</h2>
-        <div className="border rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Utilisateur
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Montant
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+      <Box mt="xl">
+        <Title order={2} mb="xl">Historique des enchères</Title>
+        <Card padding={0}>
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Utilisateur</Table.Th>
+                <Table.Th>Montant</Table.Th>
+                <Table.Th>Date</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
               {auction.bids.map(bid => (
-                <tr key={bid.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{bid.userName}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-bold text-blue-600">{bid.amount} MAD</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {bid.timestamp.toLocaleString('fr-FR')}
-                  </td>
-                </tr>
+                <Table.Tr key={bid.id}>
+                  <Table.Td><Text fw={500}>{bid.userName}</Text></Table.Td>
+                  <Table.Td><Text fw={700} c="blue">{bid.amount} MAD</Text></Table.Td>
+                  <Table.Td><Text size="sm" c="dimmed">{bid.timestamp.toLocaleString('fr-FR')}</Text></Table.Td>
+                </Table.Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+            </Table.Tbody>
+          </Table>
+        </Card>
+      </Box>
+    </Container>
   )
 }

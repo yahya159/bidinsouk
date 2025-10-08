@@ -1,48 +1,45 @@
+import { Container, Title, Text, SimpleGrid, Group, Anchor, Divider } from '@mantine/core'
+
 export default function Footer() {
   return (
-    <footer className="bg-gray-800 text-white py-12">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+    <footer style={{ backgroundColor: '#212529', color: 'white' }}>
+      <Container size="xl" py="xl">
+        <SimpleGrid cols={{ base: 1, md: 4 }} spacing="xl">
           <div>
-            <h3 className="text-xl font-bold mb-4">Bidinsouk</h3>
-            <p className="text-gray-300">
-              Le marketplace et plateforme d'enchères leader au Maroc.
-            </p>
+            <Title order={3} mb="sm" c="white">Bidinsouk</Title>
+            <Text c="dimmed">Le marketplace et plateforme d'enchères leader au Maroc.</Text>
           </div>
-          
+
           <div>
-            <h4 className="text-lg font-semibold mb-4">Navigation</h4>
-            <ul className="space-y-2">
-              <li><a href="/" className="text-gray-300 hover:text-white transition-colors">Accueil</a></li>
-              <li><a href="/auctions" className="text-gray-300 hover:text-white transition-colors">Enchères</a></li>
-              <li><a href="/products" className="text-gray-300 hover:text-white transition-colors">Produits</a></li>
-              <li><a href="/stores" className="text-gray-300 hover:text-white transition-colors">Boutiques</a></li>
-            </ul>
+            <Title order={4} mb="sm" c="white">Navigation</Title>
+            <Group gap={6} style={{ display: 'block' }}>
+              <Anchor c="dimmed" href="/">Accueil</Anchor>
+              <Anchor c="dimmed" href="/auctions">Enchères</Anchor>
+              <Anchor c="dimmed" href="/products">Produits</Anchor>
+              <Anchor c="dimmed" href="/stores">Boutiques</Anchor>
+            </Group>
           </div>
-          
+
           <div>
-            <h4 className="text-lg font-semibold mb-4">Support</h4>
-            <ul className="space-y-2">
-              <li><a href="/help" className="text-gray-300 hover:text-white transition-colors">Centre d'aide</a></li>
-              <li><a href="/contact" className="text-gray-300 hover:text-white transition-colors">Contact</a></li>
-              <li><a href="/terms" className="text-gray-300 hover:text-white transition-colors">Conditions d'utilisation</a></li>
-              <li><a href="/privacy" className="text-gray-300 hover:text-white transition-colors">Politique de confidentialité</a></li>
-            </ul>
+            <Title order={4} mb="sm" c="white">Support</Title>
+            <Group gap={6} style={{ display: 'block' }}>
+              <Anchor c="dimmed" href="/help">Centre d'aide</Anchor>
+              <Anchor c="dimmed" href="/contact">Contact</Anchor>
+              <Anchor c="dimmed" href="/terms">Conditions d'utilisation</Anchor>
+              <Anchor c="dimmed" href="/privacy">Politique de confidentialité</Anchor>
+            </Group>
           </div>
-          
+
           <div>
-            <h4 className="text-lg font-semibold mb-4">Contact</h4>
-            <address className="text-gray-300 not-italic">
-              <p>Email: support@bidinsouk.com</p>
-              <p className="mt-2">Casablanca, Maroc</p>
-            </address>
+            <Title order={4} mb="sm" c="white">Contact</Title>
+            <Text c="dimmed">Email: support@bidinsouk.com</Text>
+            <Text c="dimmed" mt={4}>Casablanca, Maroc</Text>
           </div>
-        </div>
-        
-        <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-          <p>&copy; {new Date().getFullYear()} Bidinsouk. Tous droits réservés.</p>
-        </div>
-      </div>
+        </SimpleGrid>
+
+        <Divider my="lg" color="#343a40" />
+        <Text ta="center" c="dimmed">© {new Date().getFullYear()} Bidinsouk. Tous droits réservés.</Text>
+      </Container>
     </footer>
   )
 }

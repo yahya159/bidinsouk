@@ -1,19 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { ColorSchemeScript } from '@mantine/core';
 import { Providers } from "./providers";
 import "./globals.css";
 import Header from "@/components/shared/Header";
 import Footer from "@/components/shared/Footer";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Bidinsouk - Marketplace & Auction Platform",
@@ -27,13 +17,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
-        suppressHydrationWarning
-      >
+      <head>
+        <ColorSchemeScript defaultColorScheme="light" />
+      </head>
+      <body suppressHydrationWarning>
         <Providers>
           <Header />
-          <main className="flex-grow">
+          <main style={{ minHeight: 'calc(100vh - 200px)' }}>
             {children}
           </main>
           <Footer />

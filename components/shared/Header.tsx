@@ -1,53 +1,65 @@
-import { Input } from "@/components/ui/input";
+'use client';
+
+import { TextInput, Container, Group, Button, Anchor, ActionIcon, Avatar, Badge } from '@mantine/core';
+import { IconSearch, IconHeart, IconShoppingCart, IconBell } from '@tabler/icons-react';
 
 export default function Header() {
   return (
-    <header className="border-b bg-white">
-      <div className="bg-gray-100 text-xs text-gray-600">
-        <div className="container mx-auto px-4 h-8 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <header style={{ borderBottom: '1px solid #e9ecef', backgroundColor: 'white' }}>
+      <div style={{ backgroundColor: '#f1f3f5', fontSize: '0.75rem', color: '#495057' }}>
+        <Container size="xl" style={{ height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Group gap="md">
             <span>Maroc</span>
             <span>Livraison gratuite</span>
             <span>Paiement sécurisé</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <a href="/login" className="hover:text-gray-900">Se connecter</a>
-            <a href="/register" className="hover:text-gray-900">S'inscrire</a>
-          </div>
-        </div>
+          </Group>
+          <Group gap="md">
+            <Anchor href="/login" size="xs" c="dimmed">Se connecter</Anchor>
+            <Anchor href="/register" size="xs" c="dimmed">S'inscrire</Anchor>
+          </Group>
+        </Container>
       </div>
 
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center gap-4">
-          <a href="/" className="text-2xl font-bold text-blue-600 whitespace-nowrap">
+      <Container size="xl">
+        <Group h={64} gap="md" wrap="nowrap" justify="space-between">
+          <Anchor href="/" style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1c7ed6', textDecoration: 'none', whiteSpace: 'nowrap' }}>
             Bidinsouk
-          </a>
+          </Anchor>
 
-          <div className="flex-1">
-            <div className="relative">
-              <Input placeholder="Rechercher des articles, catégories, vendeurs..." className="h-11 rounded-full pl-12" />
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2">
-                <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 104.243 11.96l3.773 3.774a.75.75 0 101.06-1.06l-3.773-3.774A6.75 6.75 0 0010.5 3.75zm-5.25 6.75a5.25 5.25 0 1110.5 0 5.25 5.25 0 01-10.5 0z" clipRule="evenodd" />
-              </svg>
-            </div>
+          <div style={{ flex: 1, maxWidth: 720 }}>
+            <TextInput
+              placeholder="Rechercher des articles, catégories, vendeurs..."
+              leftSection={<IconSearch size={18} />}
+              radius="xl"
+              size="md"
+            />
           </div>
 
-          <div className="hidden md:flex items-center gap-3">
-            <a href="/watchlist" className="text-sm hover:text-blue-600">Favoris</a>
-            <a href="/cart" className="text-sm hover:text-blue-600">Panier</a>
-            <a href="/auctions" className="bg-orange-500 hover:bg-orange-600 text-white text-sm px-4 py-2 rounded-md">
+          <Group gap="sm">
+            <ActionIcon variant="subtle" size="lg"><IconHeart /></ActionIcon>
+            <ActionIcon variant="subtle" size="lg"><IconBell /></ActionIcon>
+            <ActionIcon variant="light" size="lg"><IconShoppingCart /></ActionIcon>
+            <Button component="a" href="/auctions" color="orange" size="sm">
               Déposer une enchère
-            </a>
-          </div>
-        </div>
-        <div className="hidden md:flex items-center gap-6 pb-3">
-          <a href="/" className="text-sm hover:text-blue-600">Toutes les enchères</a>
-          <a href="/auctions" className="text-sm hover:text-blue-600">Les enchères en direct</a>
-          <a href="/products" className="text-sm hover:text-blue-600">Administration de Boutique</a>
-          <a href="/vendors/apply" className="text-sm hover:text-blue-600">Devenir Vendeur</a>
-          <a href="/orders" className="text-sm hover:text-blue-600">Enchères expirées</a>
-        </div>
-      </div>
+            </Button>
+          </Group>
+        </Group>
+
+        <Group gap="xl" pb="sm" justify="space-between">
+          <Group gap="lg">
+            <Anchor href="/" size="sm">Toutes les enchères</Anchor>
+            <Anchor href="/auctions" size="sm">Les enchères en direct</Anchor>
+            <Anchor href="/products" size="sm">Administration de Boutique</Anchor>
+            <Anchor href="/vendors/apply" size="sm">Devenir Vendeur</Anchor>
+            <Anchor href="/orders" size="sm">Enchères expirées</Anchor>
+          </Group>
+          <Group gap="xs" visibleFrom="md">
+            {['Auto','Téléphones','Femmes','Vins','Chaussures','Livres','Vêtements','Bébé','Maison','Montres','Sport','Art'].map((c) => (
+              <Badge key={c} variant="light" color="gray" size="sm" radius="xl">{c}</Badge>
+            ))}
+          </Group>
+        </Group>
+      </Container>
     </header>
   )
 }

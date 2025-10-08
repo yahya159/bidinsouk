@@ -1,3 +1,5 @@
+import { Button, Card, Container, Title, Text, Group, Badge, SimpleGrid, Stack, Pagination, Chip } from '@mantine/core'
+
 // Placeholder data - in a real app this would come from an API
 const searchResults = {
   auctions: [
@@ -44,93 +46,76 @@ const searchResults = {
 
 export default function SearchPage() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Résultats de recherche</h1>
-        <p className="text-gray-600">25 résultats pour "iPhone"</p>
-      </div>
-      
-      <div className="flex flex-wrap gap-2 mb-8">
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-full">
-          Tous
-        </button>
-        <button className="px-4 py-2 bg-gray-100 text-gray-800 rounded-full hover:bg-gray-200">
-          Enchères
-        </button>
-        <button className="px-4 py-2 bg-gray-100 text-gray-800 rounded-full hover:bg-gray-200">
-          Produits
-        </button>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <Container size="xl" py="xl">
+      <Stack gap="lg">
         <div>
-          <h2 className="text-2xl font-bold mb-6">Enchères ({searchResults.auctions.length})</h2>
-          <div className="space-y-6">
-            {searchResults.auctions.map(auction => (
-              <div key={auction.id} className="flex border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-24 h-24" />
-                <div className="p-4 flex-grow">
-                  <h3 className="font-semibold text-lg mb-1">{auction.title}</h3>
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-1">{auction.description}</p>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-gray-500">Actuellement</p>
-                      <p className="font-bold">{auction.currentPrice} MAD</p>
+          <Title order={1} mb={4}>Résultats de recherche</Title>
+          <Text c="dimmed">25 résultats pour "iPhone"</Text>
+        </div>
+
+        <Group>
+          <Chip defaultChecked> Tous </Chip>
+          <Chip> Enchères </Chip>
+          <Chip> Produits </Chip>
+        </Group>
+
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
+          <div>
+            <Title order={2} mb="md">Enchères ({searchResults.auctions.length})</Title>
+            <Stack>
+              {searchResults.auctions.map(auction => (
+                <Card key={auction.id} withBorder>
+                  <Group>
+                    <div style={{ background: '#f1f3f5', border: '2px dashed #dee2e6', borderRadius: 12, width: 96, height: 96 }} />
+                    <div style={{ flex: 1 }}>
+                      <Title order={4} mb={4}>{auction.title}</Title>
+                      <Text size="sm" c="dimmed" mb="sm" lineClamp={1}>{auction.description}</Text>
+                      <Group justify="space-between">
+                        <div>
+                          <Text size="sm" c="dimmed">Actuellement</Text>
+                          <Text fw={700}>{auction.currentPrice} MAD</Text>
+                        </div>
+                        <Button>Enchérir</Button>
+                      </Group>
                     </div>
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                      Enchérir
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+                  </Group>
+                </Card>
+              ))}
+            </Stack>
           </div>
-        </div>
-        
-        <div>
-          <h2 className="text-2xl font-bold mb-6">Produits ({searchResults.products.length})</h2>
-          <div className="space-y-6">
-            {searchResults.products.map(product => (
-              <div key={product.id} className="flex border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                <div className="bg-gray-200 border-2 border-dashed rounded-xl w-24 h-24" />
-                <div className="p-4 flex-grow">
-                  <h3 className="font-semibold text-lg mb-1">{product.title}</h3>
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-1">{product.description}</p>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-gray-500">Prix</p>
-                      <p className="font-bold">{product.price} MAD</p>
+
+          <div>
+            <Title order={2} mb="md">Produits ({searchResults.products.length})</Title>
+            <Stack>
+              {searchResults.products.map(product => (
+                <Card key={product.id} withBorder>
+                  <Group>
+                    <div style={{ background: '#f1f3f5', border: '2px dashed #dee2e6', borderRadius: 12, width: 96, height: 96 }} />
+                    <div style={{ flex: 1 }}>
+                      <Group justify="space-between" align="start">
+                        <Title order={4} mb={4}>{product.title}</Title>
+                        <Badge color="blue" variant="light">{product.condition}</Badge>
+                      </Group>
+                      <Text size="sm" c="dimmed" mb="sm" lineClamp={1}>{product.description}</Text>
+                      <Group justify="space-between">
+                        <div>
+                          <Text size="sm" c="dimmed">Prix</Text>
+                          <Text fw={700}>{product.price} MAD</Text>
+                        </div>
+                        <Button>Acheter</Button>
+                      </Group>
                     </div>
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                      Acheter
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+                  </Group>
+                </Card>
+              ))}
+            </Stack>
           </div>
-        </div>
-      </div>
-      
-      <div className="mt-12 flex justify-center">
-        <div className="flex space-x-2">
-          <button className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200">
-            Précédent
-          </button>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-md">
-            1
-          </button>
-          <button className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200">
-            2
-          </button>
-          <button className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200">
-            3
-          </button>
-          <button className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200">
-            Suivant
-          </button>
-        </div>
-      </div>
-    </div>
+        </SimpleGrid>
+
+        <Group justify="center">
+          <Pagination total={5} defaultValue={1} />
+        </Group>
+      </Stack>
+    </Container>
   )
 }

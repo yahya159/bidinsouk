@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button, TextInput, Card, Title, Text, Stack, Alert, Anchor, Center } from '@mantine/core'
 import { useRouter } from 'next/navigation'
+import { IconAlertCircle, IconCheck } from '@tabler/icons-react'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
@@ -64,79 +63,84 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Register</CardTitle>
-          <CardDescription>Create a new account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {error}
-              </div>
-            )}
-            {success && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-                Account created successfully! Redirecting to login...
-              </div>
-            )}
-            <div>
-              <Input
+    <Center style={{ minHeight: '100vh', padding: '1rem' }}>
+      <Card shadow="sm" padding="xl" radius="md" withBorder style={{ width: '100%', maxWidth: '28rem' }}>
+        <Stack gap="lg">
+          <div>
+            <Title order={2}>Register</Title>
+            <Text size="sm" c="dimmed" mt="xs">
+              Create a new account
+            </Text>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <Stack gap="md">
+              {error && (
+                <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+                  {error}
+                </Alert>
+              )}
+              
+              {success && (
+                <Alert icon={<IconCheck size={16} />} title="Success" color="green">
+                  Account created successfully! Redirecting to login...
+                </Alert>
+              )}
+
+              <TextInput
                 type="text"
-                placeholder="Full Name"
+                label="Full Name"
+                placeholder="John Doe"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
                 disabled={loading || success}
               />
-            </div>
-            <div>
-              <Input
+
+              <TextInput
                 type="email"
-                placeholder="Email"
+                label="Email"
+                placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading || success}
               />
-            </div>
-            <div>
-              <Input
+
+              <TextInput
                 type="password"
-                placeholder="Password (min 4 characters)"
+                label="Password"
+                placeholder="Min 4 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={4}
                 disabled={loading || success}
               />
-            </div>
-            <div>
-              <Input
+
+              <TextInput
                 type="password"
-                placeholder="Confirm Password"
+                label="Confirm Password"
+                placeholder="Re-enter password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 disabled={loading || success}
               />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading || success}>
-              {loading ? 'Creating Account...' : success ? 'Success!' : 'Register'}
-            </Button>
+
+              <Button type="submit" fullWidth loading={loading} disabled={success}>
+                {loading ? 'Creating Account...' : success ? 'Success!' : 'Register'}
+              </Button>
+            </Stack>
           </form>
-          <div className="mt-4 text-center">
-            <p className="text-sm">
-              Already have an account?{' '}
-              <a href="/login" className="text-blue-500 hover:underline">
-                Login
-              </a>
-            </p>
-          </div>
-        </CardContent>
+
+          <Text size="sm" ta="center">
+            Already have an account?{' '}
+            <Anchor href="/login" size="sm">
+              Login
+            </Anchor>
+          </Text>
+        </Stack>
       </Card>
-    </div>
+    </Center>
   )
 }
