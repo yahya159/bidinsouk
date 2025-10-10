@@ -46,17 +46,53 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = CreateAuctionDto.parse(body)
 
-    const store = await prisma.store.findFirst({
-      where: { id: BigInt(data.storeId), sellerId: vendor.id }
-    })
+    // Si storeId est fourni, vérifier que la boutique appartient au vendeur
+    let storeId = null;
+    if (data.storeId) {
+      const store = await prisma.store.findFirst({
+        where: { id: BigInt(data.storeId), sellerId: vendor.id }
+      })
 
-    if (!store) {
-      return NextResponse.json({ error: 'Boutique non trouvée' }, { status: 403 })
+      if (!store) {
+        return NextResponse.json({ error: 'Boutique non trouvée' }, { status: 403 })
+      }
+      
+      // Vérifier que la boutique est active
+      if (store.status !== 'ACTIVE') {
+        return NextResponse.json({ error: `La boutique "${store.name}" est actuellement ${store.status === 'PENDING' ? 'en attente d\'approbation' : store.status.toLowerCase()}. Veuillez attendre l'approbation de l'administrateur pour créer des enchères.` }, { status: 403 })
+      }
+      
+      storeId = BigInt(data.storeId);
+    } else {
+      // Si storeId n'est pas fourni, utiliser la première boutique active du vendeur
+      const vendorStore = await prisma.store.findFirst({
+        where: { 
+          sellerId: vendor.id,
+          status: 'ACTIVE'
+        }
+      })
+
+      if (!vendorStore) {
+        return NextResponse.json({ error: 'Aucune boutique active trouvée pour ce vendeur. Veuillez créer une boutique et attendre son approbation.' }, { status: 403 })
+      }
+      
+      storeId = vendorStore.id;
     }
 
+    // Créer un produit temporaire basé sur la catégorie
+    const product = await prisma.product.create({
+      data: {
+        storeId: storeId,
+        title: data.title,
+        category: data.category,
+        condition: 'USED', // Valeur par défaut
+        status: 'ACTIVE'
+      }
+    });
+
     const auction = await createAuction({
-      productId: BigInt(data.productId),
-      storeId: BigInt(data.storeId),
+      productId: product.id,
+      storeId: storeId,
       title: data.title,
       startPrice: data.startPrice,
       reservePrice: data.reservePrice,

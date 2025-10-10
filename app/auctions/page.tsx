@@ -3,6 +3,8 @@
 import AuctionCard from '@/components/AuctionCard'
 import { Container, Title, Text, SimpleGrid, Button, Group, Stack, Loader, Alert } from '@mantine/core'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 
 interface Auction {
   id: number
@@ -22,6 +24,8 @@ interface Auction {
 }
 
 export default function AuctionsPage() {
+  const router = useRouter()
+  const { data: session } = useSession()
   const [auctions, setAuctions] = useState<Auction[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +52,10 @@ export default function AuctionsPage() {
     fetchAuctions()
   }, [])
 
+  const handleCreateAuction = () => {
+    router.push('/auctions/create')
+  }
+
   if (loading) {
     return (
       <Container size="xl" py="xl">
@@ -72,8 +80,17 @@ export default function AuctionsPage() {
   return (
     <Container size="xl" py="xl">
       <Stack gap="md" mb="md">
-        <Title order={1}>Enchères en cours</Title>
-        <Text c="dimmed">Découvrez les meilleures offres et participez aux enchères en temps réel</Text>
+        <Group justify="space-between">
+          <div>
+            <Title order={1}>Enchères en cours</Title>
+            <Text c="dimmed">Découvrez les meilleures offres et participez aux enchères en temps réel</Text>
+          </div>
+          {session && (
+            <Button onClick={handleCreateAuction}>
+              Déposer une enchère
+            </Button>
+          )}
+        </Group>
       </Stack>
       
       {auctions.length === 0 ? (

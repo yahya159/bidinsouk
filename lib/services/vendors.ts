@@ -1,27 +1,55 @@
 import { prisma } from '@/lib/db/prisma'
+import { VendorApplicationType } from '@/lib/validations/vendors'
 
-export async function applyToBeVendor(userId: bigint) {
+export async function applyToBeVendor(userId: bigint, applicationData: VendorApplicationType) {
   // Check if user already has a vendor profile
   const existingVendor = await prisma.vendor.findUnique({
-    where: { userId }
+    where: { userId },
+    include: {
+      stores: true
+    }
   })
 
   if (existingVendor) {
-    throw new Error('User is already a vendor')
+    if (existingVendor.stores && existingVendor.stores.length > 0) {
+      throw new Error('Vous êtes déjà un vendeur avec ce compte et vous avez déjà créé une ou plusieurs boutiques.')
+    } else {
+      throw new Error('Vous êtes déjà enregistré comme vendeur. Veuillez créer votre boutique depuis votre tableau de bord.')
+    }
+  }
+  
+  // Vérifier si l'email est déjà utilisé par un autre vendeur
+  const existingVendorWithEmail = await prisma.vendor.findFirst({
+    where: { 
+      user: { 
+        email: applicationData.email,
+        id: { not: userId }
+      }
+    }
+  })
+
+  if (existingVendorWithEmail) {
+    throw new Error('Un vendeur existe déjà avec cet email. Veuillez utiliser un autre email ou vous connecter avec le compte existant.')
   }
 
-  // Update user role to VENDOR and create vendor profile
-  const [user, vendor] = await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
-      data: { role: 'VENDOR' }
-    }),
-    prisma.vendor.create({
-      data: { userId }
-    })
-  ])
+  // Update user information
+  await prisma.user.update({
+    where: { id: userId },
+    data: { 
+      name: applicationData.name,
+      phone: applicationData.phone
+    }
+  })
 
-  return { user, vendor }
+  // Create vendor profile
+  const vendor = await prisma.vendor.create({
+    data: { 
+      userId
+    }
+  })
+
+  // Ne pas créer automatiquement une boutique - l'utilisateur devra la créer manuellement
+  return { vendor }
 }
 
 export async function getVendorProfile(vendorId: bigint) {

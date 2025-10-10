@@ -9,6 +9,16 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     
+    // Vérifier si l'utilisateur est authentifié
+    const session = await getServerSession(authConfig)
+    let vendor = null
+    
+    if (session?.user) {
+      vendor = await prisma.vendor.findUnique({
+        where: { userId: BigInt(session.user.id) }
+      })
+    }
+    
     const filters = ProductFilterDto.parse({
       search: searchParams.get('search') || undefined,
       category: searchParams.get('category') || undefined,
@@ -20,6 +30,21 @@ export async function GET(request: NextRequest) {
       page: searchParams.get('page') ? Number(searchParams.get('page')) : 1,
       limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : 20
     })
+
+    // Si l'utilisateur est un vendeur et qu'aucun storeId n'est spécifié, 
+    // filtrer par ses propres magasins
+    if (vendor && !filters.storeId) {
+      const vendorStores = await prisma.store.findMany({
+        where: { sellerId: vendor.id },
+        select: { id: true }
+      })
+      
+      if (vendorStores.length > 0) {
+        // Si l'utilisateur a plusieurs magasins, on prend le premier
+        // Dans une implémentation plus avancée, on pourrait permettre de choisir le magasin
+        filters.storeId = vendorStores[0].id.toString()
+      }
+    }
 
     const result = await listProducts(filters)
 

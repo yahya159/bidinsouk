@@ -8,9 +8,7 @@ export async function GET(req: NextRequest) {
     const count = await getWatchlistCount(clientId)
     return NextResponse.json({ count })
   } catch (error: any) {
-    if (error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    // Retourner 0 au lieu d'une erreur pour éviter les problèmes UX
+    return NextResponse.json({ count: 0 })
   }
 }

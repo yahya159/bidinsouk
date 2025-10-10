@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUnreadCount } from '@/lib/services/notifications'
-
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  if (!userId) return null
-  return { userId: BigInt(userId) }
-}
+import { getServerSession } from 'next-auth'
+import { authConfig } from '@/lib/auth/config'
 
 export async function GET(req: NextRequest) {
   try {
-    const user = getCurrentUser(req)
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await getServerSession(authConfig)
+    
+    if (!session?.user) {
+      return NextResponse.json({ count: 0 }) // Retourner 0 au lieu d'une erreur pour éviter les problèmes UX
+    }
 
-    const count = await getUnreadCount(user.userId)
+    const count = await getUnreadCount(BigInt(session.user.id))
     return NextResponse.json({ count })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ count: 0 }) // Retourner 0 en cas d'erreur pour éviter les problèmes UX
   }
 }

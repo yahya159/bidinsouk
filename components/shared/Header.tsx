@@ -1,22 +1,41 @@
 'use client';
 
-import { TextInput, Container, Group, Button, Anchor, ActionIcon, Avatar, Badge, Select, Menu, Burger, Collapse, Indicator } from '@mantine/core';
-import { IconSearch, IconHeart, IconShoppingCart, IconBell, IconUser, IconLanguage, IconCurrencyDollar, IconChevronDown } from '@tabler/icons-react';
+import { TextInput, Container, Group, Button, Anchor, ActionIcon, Avatar, Badge, Select, Menu, Burger, Collapse, Indicator, Modal, Text } from '@mantine/core';
+import { IconSearch, IconHeart, IconShoppingCart, IconBell, IconUser, IconLanguage, IconCurrencyDollar, IconChevronDown, IconDashboard, IconUserPlus } from '@tabler/icons-react';
 import { AuthStatus } from './AuthStatus';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import dynamic from 'next/dynamic';
+
+// Charger dynamiquement le formulaire pour éviter les problèmes SSR
+const VendorApplicationForm = dynamic(() => import('../vendor/VendorApplicationForm'), { 
+  ssr: false,
+  loading: () => <Text>Chargement du formulaire...</Text>
+});
 
 export default function Header() {
   const [mobileMenuOpened, setMobileMenuOpened] = useState(false);
   const [watchlistCount, setWatchlistCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
   const [cartCount, setCartCount] = useState(0);
+  const [isVendor, setIsVendor] = useState(false);
+  const [showVendorForm, setShowVendorForm] = useState(false);
   const { data: session, status } = useSession();
 
-  // Fetch counts for watchlist, notifications, and cart
+  // Check if user is a vendor
   useEffect(() => {
-    if (status === 'authenticated') {
-      // Fetch watchlist count
+    if (status === 'authenticated' && session?.user) {
+      // Fetch user role to determine if they are a vendor
+      fetch('/api/users/me')
+        .then(res => res.json())
+        .then(data => {
+          if (data.role === 'VENDOR') {
+            setIsVendor(true);
+          }
+        })
+        .catch(err => console.error('Failed to fetch user role:', err));
+      
+      // Fetch counts for watchlist, notifications, and cart
       fetch('/api/watchlist/count')
         .then(res => res.json())
         .then(data => {
@@ -46,7 +65,7 @@ export default function Header() {
         })
         .catch(err => console.error('Failed to fetch cart count:', err));
     }
-  }, [status]);
+  }, [status, session]);
 
   return (
     <header style={{ borderBottom: '1px solid #e9ecef', backgroundColor: 'white' }}>
@@ -131,8 +150,15 @@ export default function Header() {
               </ActionIcon>
             </Indicator>
             
+            {/* Vendor dashboard link for vendors */}
+            {isVendor && (
+              <ActionIcon variant="subtle" size="lg" component="a" href="/vendor-dashboard" title="Tableau de bord vendeur">
+                <IconDashboard />
+              </ActionIcon>
+            )}
+            
             {/* Sell now button */}
-            <Button component="a" href="/auctions" color="orange" size="sm">
+            <Button component="a" href="/auctions/create" color="orange" size="sm">
               Déposer une enchère
             </Button>
           </Group>
@@ -156,7 +182,16 @@ export default function Header() {
             <Anchor href="/" size="sm">Toutes les enchères</Anchor>
             <Anchor href="/auctions" size="sm">Les enchères en direct</Anchor>
             <Anchor href="/products" size="sm">Administration de Boutique</Anchor>
-            <Anchor href="/vendors/apply" size="sm">Devenir Vendeur</Anchor>
+            <Anchor 
+              href="#" 
+              size="sm" 
+              onClick={(e) => {
+                e.preventDefault();
+                setShowVendorForm(true);
+              }}
+            >
+              Devenir Vendeur
+            </Anchor>
             <Anchor href="/orders" size="sm">Enchères expirées</Anchor>
           </Group>
           <Group gap="xs" visibleFrom="md">
@@ -177,7 +212,7 @@ export default function Header() {
                 size="sm"
                 style={{ flex: 1 }}
               />
-              <Button color="orange" size="sm">Déposer une enchère</Button>
+              <Button component="a" href="/auctions/create" color="orange" size="sm">Déposer une enchère</Button>
             </Group>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -185,8 +220,22 @@ export default function Header() {
               <Anchor href="/auctions" size="sm">Toutes les enchères</Anchor>
               <Anchor href="/auctions" size="sm">Les enchères en direct</Anchor>
               <Anchor href="/products" size="sm">Administration de Boutique</Anchor>
-              <Anchor href="/vendors/apply" size="sm">Devenir Vendeur</Anchor>
+              <Anchor 
+                href="#" 
+                size="sm" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowVendorForm(true);
+                }}
+              >
+                Devenir Vendeur
+              </Anchor>
               <Anchor href="/orders" size="sm">Enchères expirées</Anchor>
+              
+              {/* Vendor dashboard link for vendors (mobile) */}
+              {isVendor && (
+                <Anchor href="/vendor-dashboard" size="sm">Tableau de bord vendeur</Anchor>
+              )}
               
               <Menu>
                 <Menu.Target>
@@ -202,6 +251,24 @@ export default function Header() {
           </div>
         </Collapse>
       </Container>
+      
+      {/* Vendor Application Modal */}
+      <Modal
+        opened={showVendorForm}
+        onClose={() => setShowVendorForm(false)}
+        title="Devenir vendeur"
+        size="lg"
+        centered
+      >
+        {status === 'authenticated' ? (
+          <VendorApplicationForm />
+        ) : (
+          <div>
+            <Text mb="md">Vous devez être connecté pour devenir vendeur.</Text>
+            <Button component="a" href="/auth/login">Se connecter</Button>
+          </div>
+        )}
+      </Modal>
     </header>
   )
 }

@@ -1,93 +1,105 @@
-import { Card, Button, Container, Title, Text, Stack, Group, SimpleGrid } from '@mantine/core'
+'use client'
+
+import { 
+  Container, 
+  Title, 
+  Text, 
+  Card, 
+  Stack, 
+  SimpleGrid, 
+  Button,
+  ThemeIcon
+} from '@mantine/core'
+import { useRouter } from 'next/navigation'
+import { IconUsers, IconBuildingStore, IconReport, IconChartBar, IconBell, IconSettings } from '@tabler/icons-react'
 
 export default function AdminDashboard() {
-  // Placeholder data - in a real app this would come from an API
-  const stats = {
-    users: 1240,
-    vendors: 42,
-    products: 856,
-    auctions: 128
-  }
+  const router = useRouter()
+
+  const adminSections = [
+    {
+      title: 'Gestion des vendeurs',
+      description: 'Approuver ou rejeter les demandes de nouveaux vendeurs',
+      icon: IconUsers,
+      path: '/admin-dashboard/vendors',
+      color: 'blue'
+    },
+    {
+      title: 'Gestion des boutiques',
+      description: 'Approuver ou rejeter les boutiques en attente',
+      icon: IconBuildingStore,
+      path: '/admin-dashboard/stores',
+      color: 'green'
+    },
+    {
+      title: 'Signalements',
+      description: 'Gérer les signalements d\'utilisateurs ou de contenu',
+      icon: IconReport,
+      path: '/admin-dashboard/reports',
+      color: 'red'
+    },
+    {
+      title: 'Statistiques',
+      description: 'Consulter les statistiques de la plateforme',
+      icon: IconChartBar,
+      path: '/admin-dashboard/analytics',
+      color: 'violet'
+    },
+    {
+      title: 'Notifications',
+      description: 'Envoyer des notifications aux utilisateurs',
+      icon: IconBell,
+      path: '/admin-dashboard/notifications',
+      color: 'orange'
+    },
+    {
+      title: 'Paramètres',
+      description: 'Configurer les paramètres de la plateforme',
+      icon: IconSettings,
+      path: '/admin-dashboard/settings',
+      color: 'gray'
+    }
+  ]
 
   return (
     <Container size="xl" py="xl">
-      <Title order={1} mb="xl">Tableau de bord administrateur</Title>
-      
-      <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg" mb="xl">
-        <Card padding="lg" ta="center">
-          <Title order={2}>{stats.users}</Title>
-          <Text size="sm" c="dimmed">Utilisateurs</Text>
-        </Card>
-        
-        <Card padding="lg" ta="center">
-          <Title order={2}>{stats.vendors}</Title>
-          <Text size="sm" c="dimmed">Vendeurs</Text>
-        </Card>
-        
-        <Card padding="lg" ta="center">
-          <Title order={2}>{stats.products}</Title>
-          <Text size="sm" c="dimmed">Produits</Text>
-        </Card>
-        
-        <Card padding="lg" ta="center">
-          <Title order={2}>{stats.auctions}</Title>
-          <Text size="sm" c="dimmed">Enchères</Text>
-        </Card>
-      </SimpleGrid>
-      
-      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-        <Card padding="lg">
-          <Title order={3} mb="xs">Demandes de vendeurs</Title>
-          <Text size="sm" c="dimmed" mb="lg">À approuver ou rejeter</Text>
-          <Stack gap="md">
-            <Group justify="space-between" p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
-              <div>
-                <Text fw={500}>Karim Boutique</Text>
-                <Text size="sm" c="dimmed">karim@example.com</Text>
-              </div>
-              <Group gap="xs">
-                <Button variant="outline" size="sm">Approuver</Button>
-                <Button variant="outline" size="sm" color="red">Rejeter</Button>
-              </Group>
-            </Group>
-            
-            <Group justify="space-between" p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
-              <div>
-                <Text fw={500}>Fatima Électronique</Text>
-                <Text size="sm" c="dimmed">fatima@example.com</Text>
-              </div>
-              <Group gap="xs">
-                <Button variant="outline" size="sm">Approuver</Button>
-                <Button variant="outline" size="sm" color="red">Rejeter</Button>
-              </Group>
-            </Group>
-          </Stack>
-        </Card>
-        
-        <Card padding="lg">
-          <Title order={3} mb="xs">Signalements</Title>
-          <Text size="sm" c="dimmed" mb="lg">Contenu signalé par les utilisateurs</Text>
-          <Stack gap="md">
-            <Group justify="space-between" p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
-              <div>
-                <Text fw={500}>Produit suspect</Text>
-                <Text size="sm" c="dimmed">Signalé par: Youssef M.</Text>
-                <Text size="sm" c="dimmed">Raison: Contrefaçon</Text>
-              </div>
-              <Button variant="outline">Voir</Button>
-            </Group>
-            
-            <Group justify="space-between" p="md" style={{ border: '1px solid #dee2e6', borderRadius: '8px' }}>
-              <div>
-                <Text fw={500}>Avis inapproprié</Text>
-                <Text size="sm" c="dimmed">Signalé par: Amina K.</Text>
-                <Text size="sm" c="dimmed">Raison: Langage offensant</Text>
-              </div>
-              <Button variant="outline">Voir</Button>
-            </Group>
-          </Stack>
-        </Card>
-      </SimpleGrid>
+      <Stack gap="xl">
+        <Title order={1}>Tableau de bord administrateur</Title>
+        <Text c="dimmed">
+          Gérez votre plateforme de vente aux enchères
+        </Text>
+
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+          {adminSections.map((section, index) => (
+            <Card 
+              key={index}
+              padding="lg" 
+              radius="md" 
+              withBorder
+              style={{ cursor: 'pointer' }}
+              onClick={() => router.push(section.path)}
+            >
+              <Stack align="center" gap="md">
+                <ThemeIcon size={48} radius="md" color={section.color}>
+                  <section.icon size={24} />
+                </ThemeIcon>
+                <Title order={3} ta="center">{section.title}</Title>
+                <Text ta="center" c="dimmed" size="sm">
+                  {section.description}
+                </Text>
+                <Button 
+                  variant="light" 
+                  color={section.color}
+                  fullWidth
+                  mt="sm"
+                >
+                  Accéder
+                </Button>
+              </Stack>
+            </Card>
+          ))}
+        </SimpleGrid>
+      </Stack>
     </Container>
   )
 }
