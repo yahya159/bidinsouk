@@ -23,3 +23,13 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Ensure proper stacking context for components */
+#root {
+  isolation: isolate;
+}
+
+/* Fix for Mantine components */
+.mantine-Container-root {
+  max-width: 100%;
+}

@@ -42,6 +42,12 @@ export async function getWatchlist(clientId: bigint) {
   })
 }
 
+export async function getWatchlistCount(clientId: bigint) {
+  return prisma.watchlistItem.count({
+    where: { clientId }
+  })
+}
+
 export async function isInWatchlist(clientId: bigint, productId: bigint) {
   const item = await prisma.watchlistItem.findUnique({
     where: {

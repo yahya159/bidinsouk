@@ -1,37 +1,62 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, TextInput, Card, Title, Text, Stack, Alert, Anchor, Center } from '@mantine/core'
 import { useRouter } from 'next/navigation'
-import { IconAlertCircle, IconCheck } from '@tabler/icons-react'
+import { useForm } from '@mantine/form'
+import { 
+  Container, 
+  Title, 
+  Text, 
+  TextInput, 
+  PasswordInput, 
+  Checkbox, 
+  Button, 
+  Anchor, 
+  Group, 
+  Divider,
+  Card,
+  Stack,
+  Center,
+  Alert
+} from '@mantine/core'
+import { IconAlertCircle, IconBrandGoogle, IconBrandFacebook } from '@tabler/icons-react'
 
 export default function RegisterPage() {
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const router = useRouter()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  
+  const form = useForm({
+    initialValues: {
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      terms: false,
+    },
+    
+    validate: {
+      name: (value) => (value.length > 0 ? null : 'Name is required'),
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+      password: (value) => {
+        if (value.length < 8) return 'Password must be at least 8 characters'
+        if (!/[A-Z]/.test(value)) return 'Password must contain uppercase letter'
+        if (!/[a-z]/.test(value)) return 'Password must contain lowercase letter'
+        if (!/[0-9]/.test(value)) return 'Password must contain number'
+        if (!/[^A-Za-z0-9]/.test(value)) return 'Password must contain special character'
+        return null
+      },
+      confirmPassword: (value, values) => 
+        value !== values.password ? 'Passwords do not match' : null,
+      terms: (value) => (value ? null : 'You must accept the terms and conditions'),
+    },
+  })
+  
+  const handleSubmit = async (values: typeof form.values) => {
     setLoading(true)
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      setLoading(false)
-      return
-    }
-
-    if (password.length < 4) {
-      setError('Password must be at least 4 characters')
-      setLoading(false)
-      return
-    }
-
+    setError(null)
+    
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
@@ -39,108 +64,142 @@ export default function RegisterPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name,
-          email,
-          password,
-          locale: 'fr'
+          name: values.name,
+          email: values.email,
+          password: values.password,
         }),
       })
-
+      
       const data = await response.json()
-
+      
       if (!response.ok) {
         throw new Error(data.error || 'Registration failed')
       }
-
+      
       setSuccess(true)
       setTimeout(() => {
         router.push('/login')
-      }, 1500)
+      }, 2000)
     } catch (err: any) {
-      setError(err.message || 'Failed to register')
+      setError(err.message || 'An unexpected error occurred')
+    } finally {
       setLoading(false)
     }
   }
-
+  
+  const handleSocialLogin = (provider: string) => {
+    setLoading(true)
+    // For registration, we'll redirect to the provider's signup page
+    // This would typically be handled by NextAuth
+  }
+  
   return (
     <Center style={{ minHeight: '100vh', padding: '1rem' }}>
-      <Card shadow="sm" padding="xl" radius="md" withBorder style={{ width: '100%', maxWidth: '28rem' }}>
-        <Stack gap="lg">
-          <div>
-            <Title order={2}>Register</Title>
-            <Text size="sm" c="dimmed" mt="xs">
-              Create a new account
-            </Text>
-          </div>
-
-          <form onSubmit={handleSubmit}>
-            <Stack gap="md">
-              {error && (
-                <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-                  {error}
-                </Alert>
-              )}
-              
-              {success && (
-                <Alert icon={<IconCheck size={16} />} title="Success" color="green">
-                  Account created successfully! Redirecting to login...
-                </Alert>
-              )}
-
-              <TextInput
-                type="text"
-                label="Full Name"
-                placeholder="John Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
+      <Container size="xs">
+        <Card shadow="sm" padding="xl" radius="md" withBorder>
+          <Stack gap="lg">
+            <div style={{ textAlign: 'center' }}>
+              <Title order={1} mb="xs">Register</Title>
+              <Text c="dimmed">Create a new account</Text>
+            </div>
+            
+            {error && (
+              <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+                {error}
+              </Alert>
+            )}
+            
+            {success && (
+              <Alert icon={<IconAlertCircle size={16} />} title="Success" color="green">
+                Account created successfully! Redirecting to login...
+              </Alert>
+            )}
+            
+            <form onSubmit={form.onSubmit(handleSubmit)}>
+              <Stack gap="md">
+                <TextInput
+                  label="Full Name"
+                  placeholder="Your full name"
+                  required
+                  {...form.getInputProps('name')}
+                  disabled={loading || success}
+                />
+                
+                <TextInput
+                  label="Email"
+                  placeholder="your@email.com"
+                  type="email"
+                  required
+                  {...form.getInputProps('email')}
+                  disabled={loading || success}
+                />
+                
+                <PasswordInput
+                  label="Password"
+                  placeholder="Your password"
+                  required
+                  {...form.getInputProps('password')}
+                  disabled={loading || success}
+                />
+                
+                <PasswordInput
+                  label="Confirm Password"
+                  placeholder="Confirm your password"
+                  required
+                  {...form.getInputProps('confirmPassword')}
+                  disabled={loading || success}
+                />
+                
+                <Checkbox 
+                  label={
+                    <Text size="sm">
+                      I agree to the{' '}
+                      <Anchor href="/terms" target="_blank">Terms and Conditions</Anchor>
+                    </Text>
+                  }
+                  {...form.getInputProps('terms', { type: 'checkbox' })}
+                  disabled={loading || success}
+                />
+                
+                <Button 
+                  type="submit" 
+                  fullWidth 
+                  loading={loading}
+                  disabled={loading || success}
+                >
+                  Register
+                </Button>
+              </Stack>
+            </form>
+            
+            <Divider label="or continue with" labelPosition="center" />
+            
+            <Group grow>
+              <Button
+                variant="default"
+                leftSection={<IconBrandGoogle size={16} />}
+                onClick={() => handleSocialLogin('google')}
                 disabled={loading || success}
-              />
-
-              <TextInput
-                type="email"
-                label="Email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading || success}
-              />
-
-              <TextInput
-                type="password"
-                label="Password"
-                placeholder="Min 4 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading || success}
-              />
-
-              <TextInput
-                type="password"
-                label="Confirm Password"
-                placeholder="Re-enter password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                disabled={loading || success}
-              />
-
-              <Button type="submit" fullWidth loading={loading} disabled={success}>
-                {loading ? 'Creating Account...' : success ? 'Success!' : 'Register'}
+              >
+                Google
               </Button>
-            </Stack>
-          </form>
-
-          <Text size="sm" ta="center">
-            Already have an account?{' '}
-            <Anchor href="/login" size="sm">
-              Login
-            </Anchor>
-          </Text>
-        </Stack>
-      </Card>
+              <Button
+                variant="default"
+                leftSection={<IconBrandFacebook size={16} />}
+                onClick={() => handleSocialLogin('facebook')}
+                disabled={loading || success}
+              >
+                Facebook
+              </Button>
+            </Group>
+            
+            <Text ta="center" size="sm">
+              Already have an account?{' '}
+              <Anchor href="/login">Login</Anchor>
+            </Text>
+          </Stack>
+        </Card>
+      </Container>
     </Center>
   )
 }
