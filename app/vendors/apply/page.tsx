@@ -3,16 +3,22 @@
 import { Container, Title, Text, Paper, Stack, Button, Alert, Loader } from '@mantine/core'
 import { useForm, isNotEmpty } from '@mantine/form'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import { IconInfoCircle } from '@tabler/icons-react'
+import { SiteHeader } from '@/components/layout/SiteHeader'
+import Footer from '@/components/shared/Footer'
 
 export default function VendorApplicationPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const [redirectToDashboard, setRedirectToDashboard] = useState(false)
+  
+  const showDashboardMessage = searchParams.get('reason') === 'dashboard'
 
   const form = useForm({
     initialValues: {
@@ -106,9 +112,9 @@ export default function VendorApplicationPage() {
       
       if (response.ok) {
         setSuccess(true)
-        // Redirect to vendor dashboard after a short delay
+        // Redirect to store creation page after a short delay
         setTimeout(() => {
-          router.push('/vendor-dashboard')
+          router.push('/stores/create')
         }, 2000)
       } else {
         if (data.error === 'Vous êtes déjà un vendeur avec ce compte') {
@@ -149,14 +155,18 @@ export default function VendorApplicationPage() {
   // Afficher un indicateur de chargement pendant l'authentification
   if (status === 'loading') {
     return (
-      <Container size="sm" py="xl">
-        <Paper shadow="md" p="xl" radius="md">
-          <Stack align="center">
-            <Title order={2} ta="center">Chargement...</Title>
-            <Loader />
-          </Stack>
-        </Paper>
-      </Container>
+      <>
+        <SiteHeader />
+        <Container size="sm" py="xl">
+          <Paper shadow="md" p="xl" radius="md">
+            <Stack align="center">
+              <Title order={2} ta="center">Chargement...</Title>
+              <Loader />
+            </Stack>
+          </Paper>
+        </Container>
+        <Footer />
+      </>
     )
   }
 
@@ -167,39 +177,57 @@ export default function VendorApplicationPage() {
 
   if (success || redirectToDashboard) {
     return (
-      <Container size="sm" py="xl">
-        <Paper shadow="md" p="xl" radius="md">
-          <Stack align="center">
-            <Title order={2} ta="center">
-              {redirectToDashboard 
-                ? "Redirection vers votre tableau de bord..." 
-                : "Demande soumise avec succès!"}
-            </Title>
-            <Text ta="center">
-              {redirectToDashboard
-                ? "Vous êtes déjà enregistré comme vendeur. Redirection vers votre tableau de bord..."
-                : "Votre demande pour devenir vendeur a été soumise. Vous serez redirigé vers votre tableau de bord."}
-            </Text>
-            <Text ta="center" mt="md">
-              {redirectToDashboard
-                ? "Vous n'avez pas encore de boutique ? Créez-en une depuis votre tableau de bord."
-                : "Une fois approuvé, vous devrez créer votre boutique depuis votre tableau de bord vendeur."}
-            </Text>
-            <Loader />
-          </Stack>
-        </Paper>
-      </Container>
+      <>
+        <SiteHeader />
+        <Container size="sm" py="xl">
+          <Paper shadow="md" p="xl" radius="md">
+            <Stack align="center">
+              <Title order={2} ta="center">
+                {redirectToDashboard 
+                  ? "Redirection vers votre tableau de bord..." 
+                  : "Demande soumise avec succès!"}
+              </Title>
+              <Text ta="center">
+                {redirectToDashboard
+                  ? "Vous êtes déjà enregistré comme vendeur. Redirection vers votre tableau de bord..."
+                  : "Votre demande pour devenir vendeur a été soumise. Vous allez être redirigé vers la page de création de boutique."}
+              </Text>
+              <Text ta="center" mt="md">
+                {redirectToDashboard
+                  ? "Vous n'avez pas encore de boutique ? Créez-en une depuis votre tableau de bord."
+                  : "Une fois approuvé par l'administrateur, vous pourrez créer votre boutique pour commencer à vendre."}
+              </Text>
+              <Loader />
+            </Stack>
+          </Paper>
+        </Container>
+        <Footer />
+      </>
     )
   }
 
   return (
-    <Container size="sm" py="xl">
-      <Paper shadow="md" p="xl" radius="md">
-        <Stack>
-          <Title order={1} ta="center">Devenir vendeur</Title>
-          <Text c="dimmed" ta="center">
-            Remplissez le formulaire ci-dessous pour soumettre votre demande
-          </Text>
+    <>
+      <SiteHeader />
+      <Container size="sm" py="xl">
+        <Paper shadow="md" p="xl" radius="md">
+          <Stack>
+            <Title order={1} ta="center">Devenir vendeur</Title>
+            <Text c="dimmed" ta="center">
+              Remplissez le formulaire ci-dessous pour soumettre votre demande
+            </Text>
+
+          {showDashboardMessage && (
+            <Alert
+              icon={<IconInfoCircle size={16} />}
+              title="Accès vendeur requis"
+              color="blue"
+              mb="md"
+            >
+              Pour accéder à l'administration de boutique, vous devez d'abord devenir vendeur. 
+              Remplissez le formulaire ci-dessous pour soumettre votre candidature.
+            </Alert>
+          )}
 
           {error && (
             <Alert title="Erreur" color="red">
@@ -376,5 +404,7 @@ export default function VendorApplicationPage() {
         </Stack>
       </Paper>
     </Container>
+    <Footer />
+  </>
   )
 }
