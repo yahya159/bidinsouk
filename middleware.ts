@@ -1,22 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { roleGuard } from '@/lib/auth/middleware'
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-  
-  // Protect admin routes
-  if (pathname.startsWith('/admin')) {
-    return await roleGuard(request, ['ADMIN'])
+export function middleware(request: NextRequest) {
+  // Simple redirect from root to /fr
+  if (request.nextUrl.pathname === '/') {
+    return NextResponse.redirect(new URL('/fr', request.url));
   }
   
-  // Protect vendor routes
-  if (pathname.startsWith('/vendor')) {
-    return await roleGuard(request, ['VENDOR', 'ADMIN'])
-  }
-  
-  return NextResponse.next()
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/vendor/:path*']
-}
+  // Only match the root path
+  matcher: ['/']
+};
