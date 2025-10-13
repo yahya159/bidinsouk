@@ -71,7 +71,9 @@ export default function AdminStoresPage() {
       setLoading(true)
       setError(null)
       
-      const response = await fetch('/api/admin/stores/pending')
+      const response = await fetch('/api/admin/stores/pending', {
+        credentials: 'include'
+      })
       if (response.ok) {
         const data = await response.json()
         setStores(data.stores || [])
@@ -91,7 +93,9 @@ export default function AdminStoresPage() {
       setLoading(true)
       setError(null)
       
-      const response = await fetch('/api/admin/vendors/pending')
+      const response = await fetch('/api/admin/vendors/pending', {
+        credentials: 'include'
+      })
       const text = await response.text();
       
       if (response.ok) {
@@ -130,7 +134,8 @@ export default function AdminStoresPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        credentials: 'include'
       })
       
       if (response.ok) {
@@ -159,7 +164,8 @@ export default function AdminStoresPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        credentials: 'include'
       })
       
       if (response.ok) {
@@ -188,7 +194,8 @@ export default function AdminStoresPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        credentials: 'include'
       })
       
       if (response.ok) {
@@ -217,7 +224,8 @@ export default function AdminStoresPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        credentials: 'include'
       })
       
       if (response.ok) {

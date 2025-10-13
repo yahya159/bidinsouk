@@ -5,11 +5,37 @@ import { getPendingVendors } from '@/lib/services/admin'
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('Vendor Pending API - Starting request processing')
+    
+    // Log request headers for debugging
+    console.log('Vendor Pending API - Request headers:', {
+      cookie: request.headers.get('cookie'),
+      authorization: request.headers.get('authorization'),
+    })
+
     const session = await getServerSession(authConfig)
+    
+    // Log session info for debugging
+    console.log('Vendor Pending API - Session Info:', {
+      hasSession: !!session,
+      user: session?.user,
+      role: session?.user?.role,
+      timestamp: new Date().toISOString()
+    })
 
     // Vérifier que l'utilisateur est un administrateur
-    if (!session?.user || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
+    if (!session?.user) {
+      console.log('Vendor Pending API - No user in session')
+      return NextResponse.json({ error: 'Accès non autorisé - No user session' }, { status: 401 })
+    }
+    
+    if (session.user.role !== 'ADMIN') {
+      console.log('Vendor Pending API - Unauthorized access attempt', {
+        userId: session?.user?.id,
+        userRole: session?.user?.role,
+        requiredRole: 'ADMIN'
+      })
+      return NextResponse.json({ error: 'Accès non autorisé - Not admin' }, { status: 403 })
     }
 
     const vendors = await getPendingVendors()
@@ -31,6 +57,7 @@ export async function GET(request: NextRequest) {
       }))
     }))
 
+    console.log('Vendor Pending API - Successfully returning vendors data')
     return NextResponse.json({ vendors: serializedVendors })
   } catch (error: any) {
     console.error('Erreur lors de la récupération des vendeurs en attente:', error)

@@ -5,6 +5,7 @@ import { IconSearch, IconHeart, IconShoppingCart, IconBell, IconUser, IconLangua
 import { AuthStatus } from './AuthStatus';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
 // Charger dynamiquement le formulaire pour éviter les problèmes SSR
@@ -21,6 +22,30 @@ export default function Header() {
   const [isVendor, setIsVendor] = useState(false);
   const [showVendorForm, setShowVendorForm] = useState(false);
   const { data: session, status } = useSession();
+  const router = useRouter();
+
+  // Handle role-based navigation for "Administration de Boutique"
+  const handleAdminNavigation = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    if (status !== 'authenticated' || !session?.user) {
+      router.push('/login');
+      return;
+    }
+
+    const userRole = session.user.role;
+    
+    switch (userRole) {
+      case 'ADMIN':
+      case 'VENDOR':
+        router.push('/workspace/dashboard');
+        break;
+      case 'CLIENT':
+      default:
+        router.push('/vendors/apply?reason=workspace&message=Vous devez devenir vendeur pour accéder à cet espace.');
+        break;
+    }
+  };
 
   // Check if user is a vendor
   useEffect(() => {
@@ -181,7 +206,7 @@ export default function Header() {
             
             <Anchor href="/" size="sm">Toutes les enchères</Anchor>
             <Anchor href="/auctions" size="sm">Les enchères en direct</Anchor>
-            <Anchor href="/products" size="sm">Administration de Boutique</Anchor>
+            <Anchor href="#" size="sm" onClick={handleAdminNavigation}>Administration de Boutique</Anchor>
             <Anchor 
               href="#" 
               size="sm" 
@@ -219,7 +244,7 @@ export default function Header() {
               <Anchor href="/" size="sm">Accueil</Anchor>
               <Anchor href="/auctions" size="sm">Toutes les enchères</Anchor>
               <Anchor href="/auctions" size="sm">Les enchères en direct</Anchor>
-              <Anchor href="/products" size="sm">Administration de Boutique</Anchor>
+              <Anchor href="#" size="sm" onClick={handleAdminNavigation}>Administration de Boutique</Anchor>
               <Anchor 
                 href="#" 
                 size="sm" 
