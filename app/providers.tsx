@@ -4,13 +4,16 @@ import { SessionProvider } from 'next-auth/react'
 import { MantineProvider } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import { theme } from '@/lib/theme'
+import { MessageCountsProvider } from '@/contexts/MessageCountsContext'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <MantineProvider theme={theme} defaultColorScheme="light">
         <Notifications position="top-right" />
-        {children}
+        <MessageCountsProvider>
+          {children}
+        </MessageCountsProvider>
       </MantineProvider>
     </SessionProvider>
   )

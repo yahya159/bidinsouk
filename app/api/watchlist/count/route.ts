@@ -5,10 +5,16 @@ import { getClientId } from '@/lib/auth/api-auth'
 export async function GET(req: NextRequest) {
   try {
     const clientId = await getClientId(req)
+    
+    if (!clientId) {
+      // Return 0 for non-client users instead of error
+      return NextResponse.json({ count: 0 })
+    }
+    
     const count = await getWatchlistCount(clientId)
     return NextResponse.json({ count })
   } catch (error: any) {
-    // Retourner 0 au lieu d'une erreur pour éviter les problèmes UX
+    // Return 0 instead of error to avoid UX issues
     return NextResponse.json({ count: 0 })
   }
 }

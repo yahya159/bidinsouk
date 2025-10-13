@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { removeFromWatchlist } from '@/lib/services/watchlist'
-
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  const clientId = req.headers.get('x-client-id')
-  if (!userId || !clientId) return null
-  return { userId: BigInt(userId), clientId: BigInt(clientId) }
-}
+import { getClientId } from '@/lib/auth/api-auth'
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { productId: string } }
 ) {
   try {
-    const user = getCurrentUser(req)
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const clientId = await getClientId(req)
+    
+    if (!clientId) {
+      return NextResponse.json({ error: 'Client profile required' }, { status: 403 })
+    }
 
-    await removeFromWatchlist(user.clientId, BigInt(params.productId))
+    await removeFromWatchlist(clientId, BigInt(params.productId))
     return NextResponse.json({ success: true })
   } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 }
