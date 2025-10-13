@@ -1,33 +1,23 @@
-/**
- * This hook has been replaced by Mantine's notifications system.
- * Use `import { notifications } from '@mantine/notifications'` instead.
- * 
- * Example:
- * notifications.show({
- *   title: 'Success',
- *   message: 'Your action was successful',
- *   color: 'green',
- * })
- */
+import { toast as sonnerToast } from "sonner"
 
-import { notifications } from '@mantine/notifications'
-
-export function useToast() {
-  return {
-    toast: (options: { title?: string; description?: string; variant?: 'default' | 'destructive' }) => {
-      notifications.show({
-        title: options.title || '',
-        message: options.description || '',
-        color: options.variant === 'destructive' ? 'red' : 'blue',
-      })
-    },
-  }
+interface ToastProps {
+  title?: string
+  description?: string
+  variant?: "default" | "destructive"
 }
 
-export const toast = (options: { title?: string; description?: string; variant?: 'default' | 'destructive' }) => {
-  notifications.show({
-    title: options.title || '',
-    message: options.description || '',
-    color: options.variant === 'destructive' ? 'red' : 'blue',
-  })
+export function useToast() {
+  const toast = ({ title, description, variant = "default" }: ToastProps) => {
+    if (variant === "destructive") {
+      sonnerToast.error(title, {
+        description,
+      })
+    } else {
+      sonnerToast.success(title, {
+        description,
+      })
+    }
+  }
+
+  return { toast }
 }

@@ -6,7 +6,7 @@ export const CreateAuctionDto = z.object({
   title: z.string().min(3),
   description: z.string().optional(),
   startPrice: z.number().positive('Prix de départ requis'),
-  reservePrice: z.number().positive().optional(),
+  reservePrice: z.number().min(0).optional().nullable(),
   minIncrement: z.number().positive('Incrément minimum requis'),
   startAt: z.string().datetime().optional(),
   endAt: z.string().datetime()

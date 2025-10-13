@@ -47,35 +47,45 @@ export async function requireRole(req: NextRequest, allowedRoles: string[]): Pro
 }
 
 // Helper to get client ID from authenticated user
-export async function getClientId(req: NextRequest): Promise<bigint> {
-  const user = await requireAuth(req)
-  const { prisma } = await import('@/lib/db/prisma')
-  
-  const dbUser = await prisma.user.findUnique({
-    where: { id: BigInt(user.userId) },
-    include: { client: true }
-  })
-  
-  if (!dbUser?.client) {
-    throw new Error('User is not a client')
+export async function getClientId(req: NextRequest): Promise<bigint | null> {
+  try {
+    const user = await requireAuth(req)
+    const { prisma } = await import('@/lib/db/prisma')
+    
+    const dbUser = await prisma.user.findUnique({
+      where: { id: BigInt(user.userId) },
+      include: { client: true }
+    })
+    
+    // If user doesn't have a client profile, create one
+    if (dbUser && !dbUser.client) {
+      const newClient = await prisma.client.create({
+        data: {
+          userId: BigInt(user.userId)
+        }
+      })
+      return newClient.id
+    }
+    
+    return dbUser?.client?.id || null
+  } catch (error) {
+    return null
   }
-  
-  return dbUser.client.id
 }
 
 // Helper to get vendor ID from authenticated user
-export async function getVendorId(req: NextRequest): Promise<bigint> {
-  const user = await requireRole(req, ['VENDOR', 'ADMIN'])
-  const { prisma } = await import('@/lib/db/prisma')
-  
-  const dbUser = await prisma.user.findUnique({
-    where: { id: BigInt(user.userId) },
-    include: { vendor: true }
-  })
-  
-  if (!dbUser?.vendor) {
-    throw new Error('User is not a vendor')
+export async function getVendorId(req: NextRequest): Promise<bigint | null> {
+  try {
+    const user = await requireRole(req, ['VENDOR', 'ADMIN'])
+    const { prisma } = await import('@/lib/db/prisma')
+    
+    const dbUser = await prisma.user.findUnique({
+      where: { id: BigInt(user.userId) },
+      include: { vendor: true }
+    })
+    
+    return dbUser?.vendor?.id || null
+  } catch (error) {
+    return null
   }
-  
-  return dbUser.vendor.id
 }
