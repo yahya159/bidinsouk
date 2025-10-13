@@ -19,20 +19,27 @@ export async function getPendingVendors() {
         }
       },
       stores: {
-        where: { status: 'PENDING' }
+        where: { status: 'PENDING' },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          sellerId: true,
+          createdAt: true
+        }
       }
     }
   })
 }
 
-export async function approveVendor(vendorId: bigint) {
+export async function approveVendor(vendorId: string) {
   return prisma.store.updateMany({
     where: { sellerId: vendorId, status: 'PENDING' },
     data: { status: 'ACTIVE' }
   })
 }
 
-export async function rejectVendor(vendorId: bigint) {
+export async function rejectVendor(vendorId: string) {
   return prisma.store.updateMany({
     where: { sellerId: vendorId, status: 'PENDING' },
     data: { status: 'SUSPENDED' }

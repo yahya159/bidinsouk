@@ -1,26 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authConfig } from '@/lib/auth/config'
 import { rejectVendor } from '@/lib/services/admin'
 
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  const role = req.headers.get('x-user-role')
-  if (!userId) return null
-  return { userId: BigInt(userId), role }
-}
-
 export async function POST(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = getCurrentUser(req)
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await getServerSession(authConfig)
+
+    // Vérifier que l'utilisateur est un administrateur
+    if (!session?.user || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
     }
 
-    await rejectVendor(BigInt(params.id))
-    return NextResponse.json({ success: true })
+    const result = await rejectVendor(params.id)
+    
+    return NextResponse.json({ 
+      message: 'Vendeur rejeté avec succès',
+      result
+    })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
+    console.error('Erreur lors du rejet du vendeur:', error)
+    
+    if (error.message && error.message.includes('Invalid BigInt')) {
+      return NextResponse.json({ error: 'ID de vendeur invalide' }, { status: 400 })
+    }
+    
+    return NextResponse.json(
+      { error: error.message || 'Erreur lors du rejet du vendeur' },
+      { status: 500 }
+    )
   }
 }

@@ -1,23 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authConfig } from '@/lib/auth/config'
 import { getPendingVendors } from '@/lib/services/admin'
 
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  const role = req.headers.get('x-user-role')
-  if (!userId) return null
-  return { userId: BigInt(userId), role }
-}
-
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const user = getCurrentUser(req)
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await getServerSession(authConfig)
+
+    // Vérifier que l'utilisateur est un administrateur
+    if (!session?.user || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
     }
 
     const vendors = await getPendingVendors()
-    return NextResponse.json({ vendors })
+    
+    // Convertir les BigInt en string pour éviter les erreurs de sérialisation
+    const serializedVendors = vendors.map(vendor => ({
+      ...vendor,
+      id: vendor.id,
+      userId: vendor.user.id.toString(),
+      user: {
+        ...vendor.user,
+        id: vendor.user.id.toString(),
+      },
+      stores: vendor.stores.map(store => ({
+        ...store,
+        id: store.id.toString(),
+        sellerId: store.sellerId,
+        createdAt: store.createdAt.toString()
+      }))
+    }))
+
+    return NextResponse.json({ vendors: serializedVendors })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Erreur lors de la récupération des vendeurs en attente:', error)
+    return NextResponse.json(
+      { error: error.message || 'Erreur lors de la récupération des vendeurs' },
+      { status: 500 }
+    )
   }
 }
