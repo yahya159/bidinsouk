@@ -623,7 +623,7 @@ export function OrdersContent({ user }: OrdersContentProps) {
                         </Table.Td>
                         <Table.Td>
                           <Text fw={500} c="green">
-                            {order.amount.toLocaleString()} MAD
+                            {new Intl.NumberFormat('fr-FR').format(order.amount)} MAD
                           </Text>
                         </Table.Td>
                         <Table.Td>

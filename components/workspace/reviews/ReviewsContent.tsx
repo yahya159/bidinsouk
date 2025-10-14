@@ -100,7 +100,7 @@ export function ReviewsContent({ user }: ReviewsContentProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedRating, setSelectedRating] = useState('');
-  const [activeTab, setActiveTab] = useState('pending');
+  const [activeTab, setActiveTab] = useState<string | null>('pending');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
@@ -115,21 +115,50 @@ export function ReviewsContent({ user }: ReviewsContentProps) {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: itemsPerPage.toString(),
-        search: searchQuery,
-        status: getStatusForAPI(),
-        rating: selectedRating,
-      });
+      
+      // Use different API endpoints based on user role
+      let apiUrl;
+      let headers: HeadersInit = {
+        'x-user-id': user.id,
+        'x-user-role': user.role,
+      };
+      
+      if (user.role === 'ADMIN') {
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          limit: itemsPerPage.toString(),
+          search: searchQuery,
+          status: getStatusForAPI(),
+          rating: selectedRating,
+        });
+        apiUrl = `/api/admin/reviews?${params}`;
+      } else if (user.role === 'VENDOR') {
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          limit: itemsPerPage.toString(),
+          search: searchQuery,
+          status: getStatusForAPI(),
+          rating: selectedRating,
+        });
+        apiUrl = `/api/vendor/reviews?${params}`;
+      } else {
+        // If user is not admin or vendor, they don't have permission
+        notifications.show({
+          title: 'Accès refusé',
+          message: 'Vous n\'avez pas les permissions nécessaires pour accéder à cette page.',
+          color: 'red',
+        });
+        setLoading(false);
+        return;
+      }
 
-      const response = await fetch(`/api/vendors/reviews?${params}`);
+      const response = await fetch(apiUrl, { headers });
       if (!response.ok) throw new Error('Failed to fetch reviews');
 
       const data = await response.json();
       setReviews(data.reviews);
       setStats(data.stats);
-      setTotalPages(data.pagination.totalPages);
+      setTotalPages(data.pagination?.totalPages || Math.ceil(data.total / itemsPerPage));
     } catch (error) {
       notifications.show({
         title: 'Erreur',
@@ -153,15 +182,17 @@ export function ReviewsContent({ user }: ReviewsContentProps) {
 
   useEffect(() => {
     fetchReviews();
-  }, [currentPage, searchQuery, selectedStatus, selectedRating, activeTab]);
+  }, [currentPage, searchQuery, selectedStatus, selectedRating, activeTab, user.role]);
 
   const handleReviewAction = async (reviewId: string, action: string, reason?: string) => {
     try {
       setActionLoading(true);
-      const response = await fetch('/api/vendors/reviews', {
+      const response = await fetch(user.role === 'ADMIN' ? '/api/admin/reviews' : '/api/vendor/reviews', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-role': user.role,
         },
         body: JSON.stringify({
           reviewId,
@@ -196,10 +227,12 @@ export function ReviewsContent({ user }: ReviewsContentProps) {
 
     try {
       setActionLoading(true);
-      const response = await fetch('/api/vendors/reviews', {
+      const response = await fetch(user.role === 'ADMIN' ? '/api/admin/reviews' : '/api/vendor/reviews', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-role': user.role,
         },
         body: JSON.stringify({
           reviewId: selectedReview.id,
@@ -336,7 +369,7 @@ export function ReviewsContent({ user }: ReviewsContentProps) {
               <Tabs.Tab value="all">Tous</Tabs.Tab>
             </Tabs.List>
 
-            <Tabs.Panel value={activeTab} pt="md">
+            <Tabs.Panel value={activeTab || 'pending'} pt="md">
               {/* Filters */}
               <Card shadow="sm" padding="lg" radius="md" withBorder mb="md">
                 <Group gap="md">

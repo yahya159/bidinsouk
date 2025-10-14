@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { useRouter } from 'next/navigation';
+import { notifications } from '@mantine/notifications';
 
 interface User {
   id: string;
@@ -69,85 +70,21 @@ interface ActivityItem {
   color: string;
 }
 
-// Mock data - replace with real API calls
-const mockKPIs: KPIData = {
-  revenue: 45280,
-  revenueChange: 12.5,
-  orders: 156,
-  ordersChange: -3.2,
-  activeAuctions: 23,
-  auctionsChange: 8.7,
-  conversionRate: 3.4,
-  conversionChange: 1.2,
-};
-
-const mockSalesData = [
-  { name: '1 Jan', value: 1200 },
-  { name: '5 Jan', value: 1800 },
-  { name: '10 Jan', value: 1600 },
-  { name: '15 Jan', value: 2200 },
-  { name: '20 Jan', value: 1900 },
-  { name: '25 Jan', value: 2400 },
-  { name: '30 Jan', value: 2100 },
-];
-
-const mockConversionData = [
-  { name: 'Sem 1', value: 2.8 },
-  { name: 'Sem 2', value: 3.1 },
-  { name: 'Sem 3', value: 2.9 },
-  { name: 'Sem 4', value: 3.4 },
-];
-
-const mockCategoryData = [
-  { name: 'Électronique', value: 35, color: '#228be6' },
-  { name: 'Mode', value: 25, color: '#40c057' },
-  { name: 'Maison', value: 20, color: '#fab005' },
-  { name: 'Sport', value: 12, color: '#fd7e14' },
-  { name: 'Autres', value: 8, color: '#e64980' },
-];
-
-const mockActivity: ActivityItem[] = [
-  {
-    id: '1',
-    type: 'order',
-    title: 'Nouvelle commande #12345',
-    description: 'iPhone 14 Pro - 850 MAD',
-    time: 'Il y a 5 min',
-    icon: <ShoppingBag size={16} />,
-    color: 'blue',
-  },
-  {
-    id: '2',
-    type: 'bid',
-    title: 'Nouvelle enchère',
-    description: 'MacBook Air M2 - 1200 MAD',
-    time: 'Il y a 12 min',
-    icon: <Gavel size={16} />,
-    color: 'orange',
-  },
-  {
-    id: '3',
-    type: 'review',
-    title: 'Nouvel avis ⭐⭐⭐⭐⭐',
-    description: 'Samsung Galaxy S23 - "Excellent produit"',
-    time: 'Il y a 1h',
-    icon: <MessageSquare size={16} />,
-    color: 'green',
-  },
-  {
-    id: '4',
-    type: 'stock',
-    title: 'Stock faible',
-    description: 'iPad Pro - 2 unités restantes',
-    time: 'Il y a 2h',
-    icon: <Clock size={16} />,
-    color: 'red',
-  },
-];
+interface DashboardData {
+  metrics: KPIData;
+  charts: {
+    salesData: { name: string; value: number }[];
+    categoryData: { name: string; value: number; color: string }[];
+  };
+  recentActivity: {
+    orders: ActivityItem[];
+    auctions: ActivityItem[];
+  };
+}
 
 export function DashboardContent({ user }: DashboardProps) {
   const router = useRouter();
-  const [kpis, setKpis] = useState<KPIData>(mockKPIs);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [hasStores, setHasStores] = useState(true); // New state to track if vendor has stores
 
@@ -156,16 +93,47 @@ export function DashboardContent({ user }: DashboardProps) {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/vendors/dashboard');
+        // Use different API endpoints based on user role
+        let apiUrl;
+        let headers: HeadersInit = {
+          'x-user-id': user.id,
+          'x-user-role': user.role,
+        };
+        
+        if (user.role === 'ADMIN') {
+          apiUrl = '/api/admin/dashboard';
+        } else if (user.role === 'VENDOR') {
+          apiUrl = '/api/vendor/dashboard';
+        } else {
+          // If user is not admin or vendor, they don't have permission
+          notifications.show({
+            title: 'Accès refusé',
+            message: 'Vous n\'avez pas les permissions nécessaires pour accéder à cette page.',
+            color: 'red',
+          });
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(apiUrl, { headers });
+        
         if (response.ok) {
-          const data = await response.json();
-          setKpis(data.metrics);
+          const data: DashboardData = await response.json();
+          setDashboardData(data);
           
           // Check if vendor has stores (all metrics are zero)
           const allMetricsZero = Object.values(data.metrics).every(value => value === 0);
           setHasStores(!allMetricsZero);
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.details || errorData.error || 'Erreur lors du chargement des données du tableau de bord');
         }
-      } catch (error) {
+      } catch (error: any) {
+        notifications.show({
+          title: 'Erreur',
+          message: `Impossible de charger les données du tableau de bord: ${error.message}`,
+          color: 'red',
+        });
         console.error('Failed to fetch dashboard data:', error);
       } finally {
         setLoading(false);
@@ -173,7 +141,7 @@ export function DashboardContent({ user }: DashboardProps) {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [user.role, user.id]);
 
   const KPICard = ({ 
     title, 
@@ -314,7 +282,7 @@ export function DashboardContent({ user }: DashboardProps) {
   }
 
   // If vendor has no stores, show a special message
-  if (!hasStores) {
+  if (!hasStores && user.role === 'VENDOR') {
     return (
       <Stack gap="xl">
         <Title order={1} size="2rem">
@@ -339,6 +307,25 @@ export function DashboardContent({ user }: DashboardProps) {
       </Stack>
     );
   }
+
+  // Use mock data if dashboardData is not loaded
+  const kpis = dashboardData?.metrics || {
+    revenue: 0,
+    revenueChange: 0,
+    orders: 0,
+    ordersChange: 0,
+    activeAuctions: 0,
+    auctionsChange: 0,
+    conversionRate: 0,
+    conversionChange: 0,
+  };
+
+  const salesData = dashboardData?.charts?.salesData || [];
+  const categoryData = dashboardData?.charts?.categoryData || [];
+  const recentActivity = dashboardData?.recentActivity ? 
+    [...dashboardData.recentActivity.orders, ...dashboardData.recentActivity.auctions]
+      .sort((a, b) => a.time.localeCompare(b.time))
+      .slice(0, 5) : [];
 
   return (
     <Stack gap="xl">
@@ -400,7 +387,7 @@ export function DashboardContent({ user }: DashboardProps) {
               </Title>
               <Box h={300}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={mockSalesData}>
+                  <AreaChart data={salesData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />
@@ -427,14 +414,14 @@ export function DashboardContent({ user }: DashboardProps) {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={mockCategoryData}
+                      data={categoryData}
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
                       dataKey="value"
                       label={({ name, value }) => `${name}: ${value}%`}
                     >
-                      {mockCategoryData.map((entry, index) => (
+                      {categoryData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -454,10 +441,10 @@ export function DashboardContent({ user }: DashboardProps) {
                 Activité récente
               </Title>
               <Stack gap={0}>
-                {mockActivity.map((item, index) => (
+                {recentActivity.map((item, index) => (
                   <div key={item.id}>
                     <ActivityItem item={item} />
-                    {index < mockActivity.length - 1 && <Divider />}
+                    {index < recentActivity.length - 1 && <Divider />}
                   </div>
                 ))}
               </Stack>
@@ -510,7 +497,7 @@ export function DashboardContent({ user }: DashboardProps) {
           </Title>
           <Box h={200}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={mockConversionData}>
+              <LineChart data={salesData.slice(-4)}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />

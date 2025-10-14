@@ -16,6 +16,24 @@ const createThreadSchema = z.object({
   initialMessage: z.string().min(1, 'Le message initial est obligatoire')
 });
 
+// Fonction utilitaire pour convertir en BigInt en toute sécurité
+function safeBigInt(value: string | number | bigint | undefined): bigint | null {
+  if (value === undefined) return null;
+  try {
+    if (typeof value === 'bigint') return value;
+    if (typeof value === 'number') return BigInt(value);
+    if (typeof value === 'string') {
+      // Vérifier si c'est une chaîne numérique valide
+      if (!/^\d+$/.test(value)) return null;
+      return BigInt(value);
+    }
+    return null;
+  } catch (error) {
+    console.error('Erreur de conversion BigInt:', { value, error });
+    return null;
+  }
+}
+
 // GET - Récupérer les threads de l'utilisateur
 export async function GET(request: NextRequest) {
   try {
@@ -24,8 +42,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
+    // Vérifier et convertir l'ID utilisateur en BigInt
+    const userIdBigInt = safeBigInt(session.user.id);
+    if (!userIdBigInt) {
+      console.error('ID utilisateur invalide:', session.user.id);
+      return NextResponse.json({ error: 'ID utilisateur invalide' }, { status: 400 });
+    }
+
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') as 'SUPPORT_TICKET' | 'VENDOR_CHAT' | null;
+    const type = searchParams.get('type');
     const search = searchParams.get('search');
     const status = searchParams.get('status');
     const priority = searchParams.get('priority');
@@ -38,7 +63,7 @@ export async function GET(request: NextRequest) {
     const where: any = {
       participants: {
         some: {
-          userId: BigInt(session.user.id)
+          userId: userIdBigInt
         }
       }
     };
@@ -75,8 +100,10 @@ export async function GET(request: NextRequest) {
     if (unreadOnly) {
       where.messages = {
         some: {
-          isRead: false,
-          senderId: { not: BigInt(session.user.id) }
+          senderId: {
+            not: userIdBigInt
+          },
+          isRead: false
         }
       };
     }
@@ -144,8 +171,10 @@ export async function GET(request: NextRequest) {
             select: {
               messages: {
                 where: {
-                  isRead: false,
-                  senderId: { not: BigInt(session.user.id) }
+                  senderId: {
+                    not: userIdBigInt
+                  },
+                  isRead: false
                 }
               }
             }
@@ -164,13 +193,15 @@ export async function GET(request: NextRequest) {
       where: {
         participants: {
           some: {
-            userId: BigInt(session.user.id)
+            userId: userIdBigInt
           }
         },
         messages: {
           some: {
-            isRead: false,
-            senderId: { not: BigInt(session.user.id) }
+            senderId: {
+              not: userIdBigInt
+            },
+            isRead: false
           }
         }
       },
@@ -179,9 +210,21 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    // Convertir les résultats en nombres
+    let supportCount = 0;
+    let messagesCount = 0;
+    
+    for (const count of unreadCounts) {
+      if (count.type === 'SUPPORT_TICKET') {
+        supportCount = Number(count._count.id);
+      } else if (count.type === 'VENDOR_CHAT') {
+        messagesCount = Number(count._count.id);
+      }
+    }
+
     const unreadCountsMap = {
-      support: unreadCounts.find(c => c.type === 'SUPPORT_TICKET')?._count.id || 0,
-      messages: unreadCounts.find(c => c.type === 'VENDOR_CHAT')?._count.id || 0
+      support: supportCount,
+      messages: messagesCount
     };
 
     // Formater les données
@@ -229,7 +272,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Erreur GET /api/messages/threads:', error);
     return NextResponse.json(
-      { error: 'Erreur serveur' },
+      { error: 'Erreur serveur', details: error instanceof Error ? error.message : 'Erreur inconnue' },
       { status: 500 }
     );
   }
@@ -241,6 +284,13 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authConfig);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+    }
+
+    // Vérifier et convertir l'ID utilisateur en BigInt
+    const userIdBigInt = safeBigInt(session.user.id);
+    if (!userIdBigInt) {
+      console.error('ID utilisateur invalide:', session.user.id);
+      return NextResponse.json({ error: 'ID utilisateur invalide' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -272,8 +322,8 @@ export async function POST(request: NextRequest) {
           priority: validatedData.priority,
           category: validatedData.category,
           vendorId: validatedData.vendorId,
-          productId: validatedData.productId ? BigInt(validatedData.productId) : undefined,
-          orderId: validatedData.orderId ? BigInt(validatedData.orderId) : undefined,
+          productId: validatedData.productId ? safeBigInt(validatedData.productId) : undefined,
+          orderId: validatedData.orderId ? safeBigInt(validatedData.orderId) : undefined,
           lastMessageAt: new Date()
         }
       });
@@ -282,7 +332,7 @@ export async function POST(request: NextRequest) {
       await tx.messageThreadParticipant.create({
         data: {
           threadId: newThread.id,
-          userId: BigInt(session.user.id),
+          userId: userIdBigInt,
           role: 'USER'
         }
       });
@@ -295,13 +345,16 @@ export async function POST(request: NextRequest) {
         });
 
         if (vendor?.userId) {
-          await tx.messageThreadParticipant.create({
-            data: {
-              threadId: newThread.id,
-              userId: vendor.userId,
-              role: 'VENDOR'
-            }
-          });
+          const vendorUserId = safeBigInt(vendor.userId);
+          if (vendorUserId) {
+            await tx.messageThreadParticipant.create({
+              data: {
+                threadId: newThread.id,
+                userId: vendorUserId,
+                role: 'VENDOR'
+              }
+            });
+          }
         }
       }
 
@@ -309,7 +362,7 @@ export async function POST(request: NextRequest) {
       await tx.message.create({
         data: {
           threadId: newThread.id,
-          senderId: BigInt(session.user.id),
+          senderId: userIdBigInt,
           content: validatedData.initialMessage,
           isRead: false
         }
@@ -334,7 +387,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Erreur serveur' },
+      { error: 'Erreur serveur', details: error instanceof Error ? error.message : 'Erreur inconnue' },
       { status: 500 }
     );
   }

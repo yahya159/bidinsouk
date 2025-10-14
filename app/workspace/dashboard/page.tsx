@@ -11,8 +11,12 @@ export default async function WorkspaceDashboardPage() {
     redirect('/login?callbackUrl=/workspace/dashboard');
   }
 
+  // Afficher les informations de débogage
+  console.log('Session user:', session?.user);
+
   // Check if user has vendor or admin role
   if (session.user.role !== 'VENDOR' && session.user.role !== 'ADMIN') {
+    console.log('User role not authorized:', session.user.role);
     redirect('/vendors/apply?reason=workspace&message=Vous devez devenir vendeur pour accéder à cet espace.');
   }
 

@@ -19,7 +19,9 @@ export default function TestApiPage() {
         })
 
         // Test vendors API
-        const vendorsResponse = await fetch('/api/admin/vendors/pending')
+        const vendorsResponse = await fetch('/api/admin/vendors/pending', {
+          credentials: 'include'
+        })
         const vendorsData = await vendorsResponse.json()
         setVendorsResult({
           status: vendorsResponse.status,

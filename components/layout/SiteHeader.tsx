@@ -16,7 +16,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useMessageCounts } from '@/hooks/useMessageCounts';
+import { useUserCounts } from '@/hooks/useUserCounts';
 
 import {
   Globe,
@@ -39,7 +39,7 @@ import { SearchBar } from '@/components/shared/SearchBar';
 export function SiteHeader() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { counts: messageCounts } = useMessageCounts();
+  const { counts: userCounts } = useUserCounts();
   
   // Simple fallback for translations
   const t = (key: string) => {
@@ -51,13 +51,6 @@ export function SiteHeader() {
   
   const [adminModalOpened, { open: openAdminModal, close: closeAdminModal }] = useDisclosure(false);
   
-  // Mock counters for other features - replace with real data when implemented
-  const [counters] = useState({
-    favorites: 3,
-    notifications: 5,
-    cart: 1,
-  });
-
   const handleAdminClick = () => {
     if (session?.user?.role === 'VENDOR' || session?.user?.role === 'ADMIN') {
       router.push('/workspace/dashboard');
@@ -192,7 +185,7 @@ export function SiteHeader() {
                     href="/watchlist"
                     leftSection={<Heart size={16} />}
                     rightSection={
-                      counters.favorites > 0 ? (
+                      userCounts.favorites > 0 ? (
                         <Box
                           style={{
                             backgroundColor: '#fa5252',
@@ -205,7 +198,7 @@ export function SiteHeader() {
                             textAlign: 'center',
                           }}
                         >
-                          {counters.favorites}
+                          {userCounts.favorites}
                         </Box>
                       ) : null
                     }
@@ -219,7 +212,7 @@ export function SiteHeader() {
                     href="/notifications"
                     leftSection={<Bell size={16} />}
                     rightSection={
-                      counters.notifications > 0 ? (
+                      userCounts.notifications > 0 ? (
                         <Box
                           style={{
                             backgroundColor: '#fa5252',
@@ -232,7 +225,7 @@ export function SiteHeader() {
                             textAlign: 'center',
                           }}
                         >
-                          {counters.notifications}
+                          {userCounts.notifications}
                         </Box>
                       ) : null
                     }
@@ -246,7 +239,7 @@ export function SiteHeader() {
                     href="/messages"
                     leftSection={<MessageCircle size={16} />}
                     rightSection={
-                      messageCounts.total > 0 ? (
+                      userCounts.totalMessages > 0 ? (
                         <Box
                           style={{
                             backgroundColor: '#fa5252',
@@ -259,7 +252,7 @@ export function SiteHeader() {
                             textAlign: 'center',
                           }}
                         >
-                          {messageCounts.total}
+                          {userCounts.totalMessages}
                         </Box>
                       ) : null
                     }
@@ -273,7 +266,7 @@ export function SiteHeader() {
                     href="/cart"
                     leftSection={<ShoppingCart size={16} />}
                     rightSection={
-                      counters.cart > 0 ? (
+                      userCounts.cart > 0 ? (
                         <Box
                           style={{
                             backgroundColor: '#fa5252',
@@ -286,7 +279,7 @@ export function SiteHeader() {
                             textAlign: 'center',
                           }}
                         >
-                          {counters.cart}
+                          {userCounts.cart}
                         </Box>
                       ) : null
                     }

@@ -91,12 +91,38 @@ export function AnalyticsContent({ user }: AnalyticsContentProps) {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        range: dateRange,
-        category: selectedCategory,
-      });
+      
+      // Use different API endpoints based on user role
+      let apiUrl;
+      let headers: HeadersInit = {
+        'x-user-id': user.id,
+        'x-user-role': user.role,
+      };
+      
+      if (user.role === 'ADMIN') {
+        const params = new URLSearchParams({
+          range: dateRange,
+          category: selectedCategory,
+        });
+        apiUrl = `/api/admin/analytics?${params}`;
+      } else if (user.role === 'VENDOR') {
+        const params = new URLSearchParams({
+          range: dateRange,
+          category: selectedCategory,
+        });
+        apiUrl = `/api/vendor/analytics?${params}`;
+      } else {
+        // If user is not admin or vendor, they don't have permission
+        notifications.show({
+          title: 'Accès refusé',
+          message: 'Vous n\'avez pas les permissions nécessaires pour accéder à cette page.',
+          color: 'red',
+        });
+        setLoading(false);
+        return;
+      }
 
-      const response = await fetch(`/api/vendors/analytics?${params}`);
+      const response = await fetch(apiUrl, { headers });
       if (!response.ok) throw new Error('Failed to fetch analytics');
 
       const analyticsData = await response.json();
@@ -241,7 +267,7 @@ export function AnalyticsContent({ user }: AnalyticsContentProps) {
                 <ShoppingBag size={20} color="var(--mantine-color-green-6)" />
               </Group>
               <Text fw={700} size="xl" mb="xs">
-                {data.kpis.totalOrders.toLocaleString()}
+                {new Intl.NumberFormat('fr-FR').format(data.kpis.totalOrders)}
               </Text>
               <Group gap="xs">
                 <ArrowUpRight size={14} color="green" />
@@ -425,7 +451,7 @@ export function AnalyticsContent({ user }: AnalyticsContentProps) {
                   <Table.Td>
                     <Group gap="xs">
                       <Eye size={14} />
-                      <Text size="sm">{product.views.toLocaleString()}</Text>
+                      <Text size="sm">{new Intl.NumberFormat('fr-FR').format(product.views)}</Text>
                     </Group>
                   </Table.Td>
                   <Table.Td>

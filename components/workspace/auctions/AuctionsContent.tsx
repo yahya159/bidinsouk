@@ -699,7 +699,7 @@ export function AuctionsContent({ user }: AuctionsContentProps) {
                       Revenus totaux
                     </Text>
                     <Text fw={700} size="xl" c="blue">
-                      {stats.totalRevenue?.toLocaleString()} MAD
+                      {stats.totalRevenue ? new Intl.NumberFormat('fr-FR').format(stats.totalRevenue) : '0'} MAD
                     </Text>
                   </div>
                   <DollarSign size={24} color="blue" />
@@ -785,7 +785,7 @@ export function AuctionsContent({ user }: AuctionsContentProps) {
                             </Text>
                             {auction.reservePrice && (
                               <Text size="xs" c="orange">
-                                Réserve: {auction.reservePrice.toLocaleString()} MAD
+                                Réserve: {new Intl.NumberFormat('fr-FR').format(auction.reservePrice)} MAD
                               </Text>
                             )}
                           </div>
@@ -806,13 +806,13 @@ export function AuctionsContent({ user }: AuctionsContentProps) {
                         </Table.Td>
                         <Table.Td>
                           <Text size="sm">
-                            {auction.startingPrice.toLocaleString()} MAD
+                            {new Intl.NumberFormat('fr-FR').format(auction.startingPrice)} MAD
                           </Text>
                         </Table.Td>
                         <Table.Td>
                           <div>
                             <Text size="sm" fw={500} c="blue">
-                              {auction.currentBid.toLocaleString()} MAD
+                              {new Intl.NumberFormat('fr-FR').format(auction.currentBid)} MAD
                             </Text>
                             {auction.winnerId && auction.status === 'ENDED' && (
                               <Text size="xs" c="green">
@@ -1306,7 +1306,7 @@ export function AuctionsContent({ user }: AuctionsContentProps) {
               <Alert color="blue" variant="light">
                 <Text size="sm">
                   Cette action va clôturer l'enchère et créer automatiquement une commande 
-                  pour le gagnant avec le montant de {selectedAuction.currentBid.toLocaleString()} MAD.
+                  pour le gagnant avec le montant de {new Intl.NumberFormat('fr-FR').format(selectedAuction.currentBid)} MAD.
                 </Text>
               </Alert>
               
@@ -1319,7 +1319,7 @@ export function AuctionsContent({ user }: AuctionsContentProps) {
                     </div>
                     <div>
                       <Text fw={500} c="green">
-                        {selectedAuction.currentBid.toLocaleString()} MAD
+                        {new Intl.NumberFormat('fr-FR').format(selectedAuction.currentBid)} MAD
                       </Text>
                       <Text size="xs" c="dimmed">Prix final</Text>
                     </div>

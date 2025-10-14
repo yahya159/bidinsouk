@@ -18,6 +18,13 @@ export default function AdminDashboard() {
 
   const adminSections = [
     {
+      title: 'Gestion des clients',
+      description: 'Gérer tous les clients de la plateforme',
+      icon: IconUsers,
+      path: '/admin-dashboard/clients',
+      color: 'blue'
+    },
+    {
       title: 'Gestion des vendeurs',
       description: 'Approuver ou rejeter les demandes de nouveaux vendeurs',
       icon: IconUsers,

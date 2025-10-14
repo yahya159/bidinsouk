@@ -10,7 +10,7 @@ interface MessageCounts {
 }
 
 export function useMessageCounts() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [counts, setCounts] = useState<MessageCounts>({
     support: 0,
     messages: 0,
@@ -20,7 +20,8 @@ export function useMessageCounts() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchCounts = async () => {
-    if (!session?.user?.id) {
+    // Ne pas faire la requête si l'utilisateur n'est pas connecté
+    if (status !== 'authenticated' || !session?.user?.id) {
       setCounts({ support: 0, messages: 0, total: 0 });
       return;
     }
@@ -29,23 +30,24 @@ export function useMessageCounts() {
       setLoading(true);
       setError(null);
 
-      // Fetch unread counts for both support tickets and vendor messages
-      const [supportResponse, messagesResponse] = await Promise.all([
-        fetch('/api/messages/threads?type=SUPPORT_TICKET&unreadOnly=true'),
-        fetch('/api/messages/threads?type=VENDOR_CHAT&unreadOnly=true')
-      ]);
-
-      if (!supportResponse.ok || !messagesResponse.ok) {
-        throw new Error('Erreur lors du chargement des compteurs');
+      // Utiliser la nouvelle API simplifiée pour les compteurs
+      const response = await fetch('/api/messages/counts');
+      
+      if (!response.ok) {
+        console.error('Erreur API:', {
+          status: response.status,
+          url: response.url
+        });
+        // En cas d'erreur, retourner des valeurs par défaut
+        setCounts({ support: 0, messages: 0, total: 0 });
+        return;
       }
 
-      const [supportData, messagesData] = await Promise.all([
-        supportResponse.json(),
-        messagesResponse.json()
-      ]);
+      const data = await response.json();
 
-      const supportCount = supportData.unreadCounts?.support || 0;
-      const messagesCount = messagesData.unreadCounts?.messages || 0;
+      // Les données sont déjà formatées correctement
+      const supportCount = data.support || 0;
+      const messagesCount = data.messages || 0;
       const total = supportCount + messagesCount;
 
       setCounts({
@@ -55,7 +57,9 @@ export function useMessageCounts() {
       });
 
     } catch (err) {
+      console.error('Erreur dans useMessageCounts:', err);
       setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+      // En cas d'exception, retourner des valeurs par défaut
       setCounts({ support: 0, messages: 0, total: 0 });
     } finally {
       setLoading(false);
@@ -65,7 +69,7 @@ export function useMessageCounts() {
   // Fetch counts on mount and when session changes
   useEffect(() => {
     fetchCounts();
-  }, [session?.user?.id]);
+  }, [session?.user?.id, status]);
 
   // Refresh function for manual updates
   const refresh = () => {

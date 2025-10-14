@@ -17,11 +17,11 @@ export default async function WorkspaceLayoutPage({
     if (!session?.user) {
       if (isDevelopment) {
         // Create a mock user for development
-        const mockUser: { id: string; name: string; email: string; role: 'VENDOR' } = {
+        const mockUser: { id: string; name: string; email: string; role: 'VENDOR' | 'ADMIN' } = {
           id: 'dev-user',
           name: 'Development User',
           email: 'dev@bidinsouk.com',
-          role: 'VENDOR',
+          role: 'ADMIN', // Changé de 'VENDOR' à 'ADMIN' pour permettre l'accès admin
         };
         
         return (

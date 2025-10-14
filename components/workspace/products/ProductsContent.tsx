@@ -66,18 +66,18 @@ interface User {
 interface Product {
   id: string;
   title: string;
-  description: string;
-  images: string[];
-  category: string;
-  price: number;
+  description?: string;
+  images?: string[];
+  category?: string;
+  price?: number;
   compareAtPrice?: number;
-  sku: string;
-  stock: number;
+  sku?: string;
+  stock?: number;
   status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
-  condition: 'NEW' | 'USED';
-  views: number;
+  condition?: 'NEW' | 'USED';
+  views?: number;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
   storeId: string;
   attributes?: Record<string, string>;
   seo?: {
@@ -232,11 +232,11 @@ export function ProductsContent({ user }: ProductsContentProps) {
   // Filter products
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+                         (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                         (product.sku && product.sku.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory = !selectedCategory || product.category === selectedCategory;
     const matchesStatus = selectedStatus === 'Tous' || product.status === selectedStatus;
-    const matchesStock = maxStock === undefined || product.stock <= maxStock;
+    const matchesStock = maxStock === undefined || (product.stock !== undefined && product.stock <= maxStock);
     
     return matchesSearch && matchesCategory && matchesStatus && matchesStock;
   });
@@ -364,15 +364,15 @@ export function ProductsContent({ user }: ProductsContentProps) {
     setEditingProduct(product);
     setProductForm({
       title: product.title,
-      description: product.description,
-      images: product.images,
-      category: product.category,
-      price: product.price,
+      description: product.description || '',
+      images: product.images || [],
+      category: product.category || '',
+      price: product.price || 0,
       compareAtPrice: product.compareAtPrice,
-      sku: product.sku,
-      stock: product.stock,
+      sku: product.sku || '',
+      stock: product.stock || 0,
       status: product.status,
-      condition: product.condition,
+      condition: product.condition || 'NEW',
       attributes: product.attributes || {},
       seo: {
         title: product.seo?.title || '',
@@ -407,7 +407,7 @@ export function ProductsContent({ user }: ProductsContentProps) {
       setLoading(true);
       
       // Validate required fields
-      if (!productForm.title || !productForm.description || !productForm.category || productForm.price <= 0) {
+      if (!productForm.title || !productForm.description || !productForm.category) {
         notifications.show({
           title: 'Erreur de validation',
           message: 'Veuillez remplir tous les champs obligatoires',
@@ -476,19 +476,13 @@ export function ProductsContent({ user }: ProductsContentProps) {
         images: [],
         category: '',
         price: 0,
-        compareAtPrice: 0,
+        compareAtPrice: undefined,
         sku: '',
-        barcode: '',
-        trackQuantity: false,
-        quantity: 0,
-        allowBackorder: false,
-        weight: 0,
-        dimensions: { length: 0, width: 0, height: 0 },
-        tags: [],
-        seoTitle: '',
-        seoDescription: '',
+        stock: 0,
         status: 'DRAFT',
-        variants: [],
+        condition: 'NEW',
+        attributes: {},
+        seo: { title: '', description: '', keywords: [] },
       });
       setEditingProduct(null);
       closeProductDrawer();
@@ -708,7 +702,7 @@ export function ProductsContent({ user }: ProductsContentProps) {
                       </Table.Td>
                       <Table.Td>
                         <Image
-                          src={product.images[0]}
+                          src={product.images && product.images.length > 0 ? product.images[0] : 'https://placehold.co/40x40'}
                           alt={product.title}
                           width={40}
                           height={40}
@@ -720,9 +714,11 @@ export function ProductsContent({ user }: ProductsContentProps) {
                           <Text fw={500} size="sm">
                             {product.title}
                           </Text>
-                          <Text size="xs" c="dimmed">
-                            SKU: {product.sku}
-                          </Text>
+                          {product.sku && (
+                            <Text size="xs" c="dimmed">
+                              SKU: {product.sku}
+                            </Text>
+                          )}
                         </div>
                       </Table.Td>
                       <Table.Td>
@@ -732,10 +728,12 @@ export function ProductsContent({ user }: ProductsContentProps) {
                       </Table.Td>
                       <Table.Td>
                         <div>
-                          <Text size="sm" fw={500}>
-                            {new Intl.NumberFormat('fr-FR').format(product.price)} MAD
-                          </Text>
-                          {product.compareAtPrice && (
+                          {product.price !== undefined && (
+                            <Text size="sm" fw={500}>
+                              {new Intl.NumberFormat('fr-FR').format(product.price)} MAD
+                            </Text>
+                          )}
+                          {product.compareAtPrice !== undefined && product.compareAtPrice > 0 && (
                             <Text size="xs" c="dimmed" td="line-through">
                               {new Intl.NumberFormat('fr-FR').format(product.compareAtPrice)} MAD
                             </Text>
@@ -743,9 +741,15 @@ export function ProductsContent({ user }: ProductsContentProps) {
                         </div>
                       </Table.Td>
                       <Table.Td>
-                        <Badge color={product.stock > 0 ? 'green' : 'red'} variant="light">
-                          {product.stock}
-                        </Badge>
+                        {product.stock !== undefined ? (
+                          <Badge color={product.stock > 0 ? 'green' : 'red'} variant="light">
+                            {product.stock}
+                          </Badge>
+                        ) : (
+                          <Badge color="gray" variant="light">
+                            N/A
+                          </Badge>
+                        )}
                       </Table.Td>
                       <Table.Td>
                         <Badge color={getStatusColor(product.status)} variant="light">
@@ -753,7 +757,11 @@ export function ProductsContent({ user }: ProductsContentProps) {
                         </Badge>
                       </Table.Td>
                       <Table.Td>
-                        <Text size="sm">{product.views}</Text>
+                        {product.views !== undefined ? (
+                          <Text size="sm">{product.views}</Text>
+                        ) : (
+                          <Text size="sm">-</Text>
+                        )}
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">

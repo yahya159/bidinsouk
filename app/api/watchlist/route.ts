@@ -41,6 +41,38 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// GET /api/watchlist/count - Get watchlist count
+export async function GET_count(request: NextRequest) {
+  try {
+    const session = await getServerSession(authConfig);
+    
+    if (!session?.user) {
+      return NextResponse.json({ count: 0 });
+    }
+
+    const clientId = await getClientId(request);
+    
+    if (!clientId) {
+      return NextResponse.json({ count: 0 });
+    }
+
+    // Import prisma directly to count watchlist items
+    const { prisma } = await import('@/lib/db/prisma');
+    
+    const count = await prisma.watchlistItem.count({
+      where: {
+        clientId: clientId
+      }
+    });
+
+    return NextResponse.json({ count });
+
+  } catch (error) {
+    console.error('Error fetching watchlist count:', error);
+    return NextResponse.json({ count: 0 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authConfig);

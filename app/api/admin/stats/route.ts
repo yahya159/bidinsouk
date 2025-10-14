@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPlatformStats } from '@/lib/services/admin'
+import { getPlatformStats, getHistoricalStats, getRecentActivity } from '@/lib/services/admin'
 
 function getCurrentUser(req: NextRequest) {
   const userId = req.headers.get('x-user-id')
@@ -15,8 +15,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Récupérer les paramètres de requête
+    const { searchParams } = new URL(req.url)
+    const days = parseInt(searchParams.get('days') || '30')
+    
+    // Récupérer les statistiques de base
     const stats = await getPlatformStats()
-    return NextResponse.json({ stats })
+    
+    // Récupérer les statistiques historiques si demandé
+    const historical = await getHistoricalStats(days)
+    
+    // Récupérer l'activité récente
+    const recentActivity = await getRecentActivity(10)
+    
+    return NextResponse.json({ stats, historical, recentActivity })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

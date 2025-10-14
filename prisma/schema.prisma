@@ -58,7 +58,7 @@ model Client {
 
 // Vendor profile
 model Vendor {
-  id        String @id @default(cuid())
+  id        BigInt @id @default(autoincrement()) @db.BigInt
   user      User   @relation(fields: [userId], references: [id])
   userId    BigInt @unique @db.BigInt
 
@@ -78,7 +78,7 @@ model Admin {
 model Store {
   id        BigInt  @id @default(autoincrement()) @db.BigInt
   seller    Vendor  @relation(fields: [sellerId], references: [id])
-  sellerId  String
+  sellerId  BigInt @db.BigInt
   name      String
   slug      String  @unique
   email     String
@@ -120,6 +120,7 @@ model Product {
   seoData   Json?
   variants  Json?
   inventory Json?
+  views     Int @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -268,7 +269,7 @@ model MessageThread {
   updatedAt     DateTime @updatedAt
 
   // Relations
-  vendorId   String? 
+  vendorId   BigInt?
   vendor     Vendor? @relation(fields: [vendorId], references: [id])
   productId  BigInt?
   product    Product? @relation(fields: [productId], references: [id])
@@ -426,7 +427,7 @@ model AuditLog {
   actor     User    @relation(name: "Actor", fields: [actorId], references: [id])
   actorId   BigInt  @db.BigInt
   vendor    Vendor? @relation(name: "VendorAudit", fields: [vendorId], references: [id])
-  vendorId  String?
+  vendorId  BigInt?
   entity    String
   entityId  BigInt
   diff      Json
@@ -468,7 +469,7 @@ model SavedSearch {
 model VendorSettings {
   id        BigInt @id @default(autoincrement()) @db.BigInt
   vendor    Vendor @relation(fields: [vendorId], references: [id])
-  vendorId  String @unique
+  vendorId  BigInt @unique @db.BigInt
   storeSettings Json?
   accountSettings Json?
   notificationSettings Json?

@@ -23,6 +23,8 @@ import {
   Tooltip,
   Modal,
   ScrollArea,
+  Center,
+  Loader,
 } from '@mantine/core';
 import {
   FileText,
@@ -44,6 +46,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { useDisclosure } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
 
 interface User {
   id: string;
@@ -75,95 +78,78 @@ export function ReportsContent({ user }: ReportsContentProps) {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
 
-  // Mock data for reports
-  const mockReports: Report[] = [
-    {
-      id: '1',
-      title: 'Rapport des Ventes - Janvier 2024',
-      type: 'sales',
-      status: 'completed',
-      createdAt: '2024-01-15T10:30:00Z',
-      size: '2.3 MB',
-      description: 'Analyse complète des ventes du mois de janvier incluant les revenus, les produits les plus vendus et les tendances.',
-      data: {
-        totalSales: 45600,
-        totalOrders: 234,
-        averageOrderValue: 195,
-        topProducts: ['iPhone 14', 'MacBook Air', 'AirPods Pro']
+  // Fetch reports from API
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+      
+      // Use different API endpoints based on user role
+      let apiUrl;
+      let headers: HeadersInit = {
+        'x-user-id': user.id,
+        'x-user-role': user.role,
+      };
+      
+      if (user.role === 'ADMIN') {
+        const params = new URLSearchParams({
+          limit: '50',
+          offset: '0',
+          type: filterType !== 'all' ? filterType : '',
+        });
+        apiUrl = `/api/admin/reports?${params}`;
+      } else if (user.role === 'VENDOR') {
+        const params = new URLSearchParams({
+          limit: '50',
+          offset: '0',
+          type: filterType !== 'all' ? filterType : '',
+        });
+        apiUrl = `/api/vendor/reports?${params}`;
+      } else {
+        // If user is not admin or vendor, they don't have permission
+        notifications.show({
+          title: 'Accès refusé',
+          message: 'Vous n\'avez pas les permissions nécessaires pour accéder à cette page.',
+          color: 'red',
+        });
+        setLoading(false);
+        return;
       }
-    },
-    {
-      id: '2',
-      title: 'Inventaire - État des Stocks',
-      type: 'inventory',
-      status: 'completed',
-      createdAt: '2024-01-14T15:45:00Z',
-      size: '1.8 MB',
-      description: 'Rapport détaillé de l\'état des stocks, produits en rupture et recommandations de réapprovisionnement.',
-      data: {
-        totalProducts: 156,
-        lowStock: 12,
-        outOfStock: 3,
-        totalValue: 125000
+
+      const response = await fetch(apiUrl, { headers });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Convert audit logs to report format
+        const convertedReports = data.reports.map((report: any) => ({
+          id: report.id,
+          title: `Rapport ${report.entity} - ${new Date(report.createdAt).toLocaleDateString('fr-FR')}`,
+          type: report.entity === 'Order' ? 'sales' : 
+                 report.entity === 'Product' ? 'inventory' : 
+                 report.entity === 'User' ? 'customers' : 'performance',
+          status: 'completed', // All audit logs are completed
+          createdAt: report.createdAt,
+          size: 'N/A',
+          description: `Action: ${report.action} - Effectuée par: ${report.actor.name}`,
+          data: report.diff || {}
+        }));
+        setReports(convertedReports);
+      } else {
+        throw new Error('Erreur lors du chargement des rapports');
       }
-    },
-    {
-      id: '3',
-      title: 'Analyse des Clients - Q4 2023',
-      type: 'customers',
-      status: 'completed',
-      createdAt: '2024-01-10T09:15:00Z',
-      size: '3.1 MB',
-      description: 'Segmentation des clients, analyse de la fidélité et recommandations pour améliorer la rétention.',
-      data: {
-        totalCustomers: 1250,
-        newCustomers: 89,
-        returningCustomers: 456,
-        averageLifetimeValue: 850
-      }
-    },
-    {
-      id: '4',
-      title: 'Performance des Enchères',
-      type: 'performance',
-      status: 'processing',
-      createdAt: '2024-01-16T14:20:00Z',
-      size: 'En cours...',
-      description: 'Analyse des performances des enchères, taux de conversion et optimisations suggérées.',
-    },
-    {
-      id: '5',
-      title: 'Rapport Financier - Décembre 2023',
-      type: 'financial',
-      status: 'completed',
-      createdAt: '2024-01-05T11:00:00Z',
-      size: '4.2 MB',
-      description: 'Bilan financier complet incluant les revenus, dépenses, marges et projections.',
-      data: {
-        revenue: 78500,
-        expenses: 23400,
-        profit: 55100,
-        margin: 70.2
-      }
-    },
-    {
-      id: '6',
-      title: 'Analyse des Tendances - 2023',
-      type: 'performance',
-      status: 'failed',
-      createdAt: '2024-01-12T16:30:00Z',
-      size: 'Échec',
-      description: 'Analyse des tendances de vente et prédictions pour 2024.',
+    } catch (error) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de charger les rapports',
+        color: 'red',
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setReports(mockReports);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    fetchReports();
+  }, [user.role, filterType]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -222,9 +208,42 @@ export function ReportsContent({ user }: ReportsContentProps) {
     console.log('Downloading report:', reportId);
   };
 
-  const handleGenerateReport = () => {
-    // Simulate report generation
-    console.log('Generating new report...');
+  const handleGenerateReport = async () => {
+    try {
+      // Ouvrir une modale pour choisir le type de rapport
+      // Pour l'instant, on va générer un rapport de ventes par défaut
+      const response = await fetch(user.role === 'ADMIN' ? '/api/admin/reports/generate' : '/api/vendor/reports/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-role': user.role,
+        },
+        body: JSON.stringify({
+          type: 'sales', // Type de rapport par défaut
+          dateRange: 'last_30_days' // Plage de dates par défaut
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to generate report');
+
+      const newReport = await response.json();
+      
+      // Ajouter le nouveau rapport à la liste
+      setReports(prev => [newReport, ...prev]);
+      
+      notifications.show({
+        title: 'Rapport généré',
+        message: 'Le rapport a été généré avec succès',
+        color: 'green',
+      });
+    } catch (error) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de générer le rapport',
+        color: 'red',
+      });
+    }
   };
 
   // Statistics for overview cards
@@ -234,6 +253,14 @@ export function ReportsContent({ user }: ReportsContentProps) {
     processingReports: reports.filter(r => r.status === 'processing').length,
     failedReports: reports.filter(r => r.status === 'failed').length,
   };
+
+  if (loading) {
+    return (
+      <Center style={{ height: 400 }}>
+        <Loader size="lg" />
+      </Center>
+    );
+  }
 
   return (
     <Container size="xl" py="xl">
@@ -495,21 +522,6 @@ export function ReportsContent({ user }: ReportsContentProps) {
                   {Object.entries(selectedReport.data).map(([key, value]) => (
                     <div key={key}>
                       <Text size="sm" c="dimmed" mb={4}>
-                        {key === 'totalSales' && 'Ventes Totales'}
-                        {key === 'totalOrders' && 'Commandes Totales'}
-                        {key === 'averageOrderValue' && 'Panier Moyen'}
-                        {key === 'totalProducts' && 'Produits Totaux'}
-                        {key === 'lowStock' && 'Stock Faible'}
-                        {key === 'outOfStock' && 'Rupture de Stock'}
-                        {key === 'totalValue' && 'Valeur Totale'}
-                        {key === 'totalCustomers' && 'Clients Totaux'}
-                        {key === 'newCustomers' && 'Nouveaux Clients'}
-                        {key === 'returningCustomers' && 'Clients Fidèles'}
-                        {key === 'averageLifetimeValue' && 'Valeur Vie Client'}
-                        {key === 'revenue' && 'Revenus'}
-                        {key === 'expenses' && 'Dépenses'}
-                        {key === 'profit' && 'Bénéfices'}
-                        {key === 'margin' && 'Marge (%)'}
                         {key}
                       </Text>
                       <Text fw={500}>
@@ -519,7 +531,7 @@ export function ReportsContent({ user }: ReportsContentProps) {
                          `${new Intl.NumberFormat('fr-FR').format(value)} MAD` : 
                          key === 'margin' ? `${value}%` :
                          new Intl.NumberFormat('fr-FR').format(value) : 
-                         value}
+                         value?.toString() || 'N/A'}
                       </Text>
                     </div>
                   ))}

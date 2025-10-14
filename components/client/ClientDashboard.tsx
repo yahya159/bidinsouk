@@ -11,6 +11,7 @@ import {
   Button,
   Badge,
   ThemeIcon,
+  Loader,
 } from '@mantine/core';
 import {
   IconShoppingCart,
@@ -23,6 +24,7 @@ import {
   IconSettings,
 } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
+import { useClientStats } from '@/hooks/useClientStats';
 
 interface User {
   id: string;
@@ -38,6 +40,7 @@ interface ClientDashboardProps {
 
 export function ClientDashboard({ user }: ClientDashboardProps) {
   const router = useRouter();
+  const { stats, loading, error } = useClientStats();
 
   const quickActions = [
     {
@@ -105,79 +108,92 @@ export function ClientDashboard({ user }: ClientDashboardProps) {
         </div>
 
         {/* Quick Stats */}
-        <Grid>
-          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-            <Card shadow="sm" padding="lg" radius="md">
-              <Group justify="space-between">
-                <div>
-                  <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
-                    Commandes
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    12
-                  </Text>
-                </div>
-                <ThemeIcon size="lg" radius="md" variant="light" color="blue">
-                  <IconShoppingCart size={20} />
-                </ThemeIcon>
-              </Group>
-            </Card>
-          </Grid.Col>
-          
-          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-            <Card shadow="sm" padding="lg" radius="md">
-              <Group justify="space-between">
-                <div>
-                  <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
-                    Watchlist
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    8
-                  </Text>
-                </div>
-                <ThemeIcon size="lg" radius="md" variant="light" color="red">
-                  <IconHeart size={20} />
-                </ThemeIcon>
-              </Group>
-            </Card>
-          </Grid.Col>
-          
-          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-            <Card shadow="sm" padding="lg" radius="md">
-              <Group justify="space-between">
-                <div>
-                  <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
-                    Enchères actives
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    3
-                  </Text>
-                </div>
-                <ThemeIcon size="lg" radius="md" variant="light" color="orange">
-                  <IconHammer size={20} />
-                </ThemeIcon>
-              </Group>
-            </Card>
-          </Grid.Col>
-          
-          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-            <Card shadow="sm" padding="lg" radius="md">
-              <Group justify="space-between">
-                <div>
-                  <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
-                    Avis donnés
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    15
-                  </Text>
-                </div>
-                <ThemeIcon size="lg" radius="md" variant="light" color="yellow">
-                  <IconStar size={20} />
-                </ThemeIcon>
-              </Group>
-            </Card>
-          </Grid.Col>
-        </Grid>
+        {loading ? (
+          <Group justify="center" py="xl">
+            <Loader />
+            <Text>Chargement des statistiques...</Text>
+          </Group>
+        ) : error ? (
+          <Card shadow="sm" padding="lg" radius="md" bg="red.0">
+            <Text c="red" fw={500}>
+              {error}
+            </Text>
+          </Card>
+        ) : (
+          <Grid>
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+              <Card shadow="sm" padding="lg" radius="md">
+                <Group justify="space-between">
+                  <div>
+                    <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
+                      Commandes
+                    </Text>
+                    <Text size="xl" fw={700}>
+                      {new Intl.NumberFormat('fr-FR').format(stats.orders)}
+                    </Text>
+                  </div>
+                  <ThemeIcon size="lg" radius="md" variant="light" color="blue">
+                    <IconShoppingCart size={20} />
+                  </ThemeIcon>
+                </Group>
+              </Card>
+            </Grid.Col>
+            
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+              <Card shadow="sm" padding="lg" radius="md">
+                <Group justify="space-between">
+                  <div>
+                    <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
+                      Watchlist
+                    </Text>
+                    <Text size="xl" fw={700}>
+                      {new Intl.NumberFormat('fr-FR').format(stats.watchlist)}
+                    </Text>
+                  </div>
+                  <ThemeIcon size="lg" radius="md" variant="light" color="red">
+                    <IconHeart size={20} />
+                  </ThemeIcon>
+                </Group>
+              </Card>
+            </Grid.Col>
+            
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+              <Card shadow="sm" padding="lg" radius="md">
+                <Group justify="space-between">
+                  <div>
+                    <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
+                      Enchères actives
+                    </Text>
+                    <Text size="xl" fw={700}>
+                      {new Intl.NumberFormat('fr-FR').format(stats.activeAuctions)}
+                    </Text>
+                  </div>
+                  <ThemeIcon size="lg" radius="md" variant="light" color="orange">
+                    <IconHammer size={20} />
+                  </ThemeIcon>
+                </Group>
+              </Card>
+            </Grid.Col>
+            
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+              <Card shadow="sm" padding="lg" radius="md">
+                <Group justify="space-between">
+                  <div>
+                    <Text size="sm" c="dimmed" tt="uppercase" fw={700}>
+                      Avis donnés
+                    </Text>
+                    <Text size="xl" fw={700}>
+                      {new Intl.NumberFormat('fr-FR').format(stats.reviews)}
+                    </Text>
+                  </div>
+                  <ThemeIcon size="lg" radius="md" variant="light" color="yellow">
+                    <IconStar size={20} />
+                  </ThemeIcon>
+                </Group>
+              </Card>
+            </Grid.Col>
+          </Grid>
+        )}
 
         {/* Quick Actions */}
         <div>

@@ -5,7 +5,7 @@ function getCurrentUser(req: NextRequest) {
   const userId = req.headers.get('x-user-id')
   const role = req.headers.get('x-user-role')
   if (!userId) return null
-  return { userId: BigInt(userId), role }
+  return { userId, role }
 }
 
 export async function GET(req: NextRequest) {
@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
     const result = await getAllUsers({ role, limit, offset })
     return NextResponse.json(result)
   } catch (error: any) {
+    console.error('Error fetching users:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

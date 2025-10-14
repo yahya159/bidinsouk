@@ -23,6 +23,7 @@ import {
   Loader,
   Grid,
   Divider,
+  Alert,
 } from '@mantine/core';
 import {
   Search,
@@ -37,6 +38,7 @@ import {
   AlertCircle,
   Users,
   Star,
+  ShieldAlert,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDisclosure } from '@mantine/hooks';
@@ -72,95 +74,97 @@ interface ClientsContentProps {
   user: User;
 }
 
-// Mock data
-const mockClients: Client[] = [
-  {
-    id: '1',
-    name: 'Ahmed Benali',
-    email: 'ahmed@example.com',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&auto=format',
-    status: 'ACTIVE',
-    segment: 'VIP',
-    totalOrders: 15,
-    totalSpent: 125000,
-    lastActivity: '2024-01-15T10:00:00Z',
-    joinedAt: '2023-06-15T10:00:00Z',
-    stats: {
-      orders: 15,
-      auctions: 8,
-      reviews: 12,
-      disputes: 0,
-    },
-  },
-  {
-    id: '2',
-    name: 'Fatima Zahra',
-    email: 'fatima@example.com',
-    status: 'ACTIVE',
-    segment: 'ACTIVE',
-    totalOrders: 7,
-    totalSpent: 45000,
-    lastActivity: '2024-01-14T15:30:00Z',
-    joinedAt: '2023-09-20T14:00:00Z',
-    stats: {
-      orders: 7,
-      auctions: 12,
-      reviews: 5,
-      disputes: 1,
-    },
-  },
-  {
-    id: '3',
-    name: 'Omar Alami',
-    email: 'omar@example.com',
-    status: 'NEW',
-    segment: 'NEW',
-    totalOrders: 1,
-    totalSpent: 8500,
-    lastActivity: '2024-01-10T09:00:00Z',
-    joinedAt: '2024-01-05T16:30:00Z',
-    stats: {
-      orders: 1,
-      auctions: 3,
-      reviews: 0,
-      disputes: 0,
-    },
-  },
-  {
-    id: '4',
-    name: 'Youssef Tazi',
-    email: 'youssef@example.com',
-    status: 'SUSPENDED',
-    segment: 'RISK',
-    totalOrders: 3,
-    totalSpent: 12000,
-    lastActivity: '2024-01-08T11:20:00Z',
-    joinedAt: '2023-11-10T09:15:00Z',
-    stats: {
-      orders: 3,
-      auctions: 2,
-      reviews: 1,
-      disputes: 3,
-    },
-  },
-];
-
+// Remove mock data and fetch real data from API
 const segments = ['Tous', 'NEW', 'ACTIVE', 'VIP', 'RISK'];
 const statuses = ['Tous', 'ACTIVE', 'SUSPENDED', 'NEW'];
 
 export function ClientsContent({ user }: ClientsContentProps) {
   const router = useRouter();
-  const [clients, setClients] = useState<Client[]>(mockClients);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSegment, setSelectedSegment] = useState('Tous');
   const [selectedStatus, setSelectedStatus] = useState('Tous');
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState<string | null>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [detailModalOpened, { open: openDetailModal, close: closeDetailModal }] = useDisclosure(false);
+  const [totalClients, setTotalClients] = useState(0);
 
   const itemsPerPage = 12;
+
+  // Fetch clients from API
+  const fetchClients = async (page = 1) => {
+    try {
+      setLoading(true);
+      
+      // Use different API endpoints based on user role
+      let apiUrl;
+      let headers: HeadersInit = {
+        'x-user-id': user.id,
+        'x-user-role': user.role,
+      };
+      
+      if (user.role === 'ADMIN') {
+        apiUrl = `/api/admin/users?role=CLIENT&limit=${itemsPerPage}&offset=${(page - 1) * itemsPerPage}`;
+      } else if (user.role === 'VENDOR') {
+        apiUrl = `/api/vendor/clients?limit=${itemsPerPage}&offset=${(page - 1) * itemsPerPage}`;
+      } else {
+        // If user is not admin or vendor, they don't have permission
+        notifications.show({
+          title: 'Accès refusé',
+          message: 'Vous n\'avez pas les permissions nécessaires pour accéder à cette page.',
+          color: 'red',
+        });
+        setInitialLoading(false);
+        setLoading(false);
+        return;
+      }
+      
+      const response = await fetch(apiUrl, { headers });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Convert user data to client format
+        const convertedClients = data.users.map((user: any) => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          status: 'ACTIVE', // Default status
+          segment: 'NEW', // Default segment
+          totalOrders: 0, // Default values
+          totalSpent: 0,
+          lastActivity: user.createdAt,
+          joinedAt: user.createdAt,
+          stats: {
+            orders: 0,
+            auctions: 0,
+            reviews: 0,
+            disputes: 0,
+          },
+        }));
+        setClients(convertedClients);
+        setTotalClients(data.total);
+      } else {
+        throw new Error('Erreur lors du chargement des clients');
+      }
+    } catch (error) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de charger les clients',
+        color: 'red',
+      });
+    } finally {
+      setLoading(false);
+      setInitialLoading(false);
+    }
+  };
+
+  // Initial fetch
+  useEffect(() => {
+    fetchClients(1);
+  }, [user.role]);
 
   // Filter clients
   const filteredClients = clients.filter(client => {
@@ -177,7 +181,7 @@ export function ClientsContent({ user }: ClientsContentProps) {
     return matchesSearch && matchesSegment && matchesStatus && matchesTab;
   });
 
-  const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
+  const totalPages = Math.ceil(totalClients / itemsPerPage);
   const paginatedClients = filteredClients.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -249,7 +253,7 @@ export function ClientsContent({ user }: ClientsContentProps) {
     }
   };
 
-  if (loading && clients.length === 0) {
+  if (initialLoading) {
     return (
       <Center style={{ height: 400 }}>
         <Loader size="lg" />
@@ -280,7 +284,7 @@ export function ClientsContent({ user }: ClientsContentProps) {
                 <Group justify="space-between">
                   <div>
                     <Text c="dimmed" size="sm">Total Clients</Text>
-                    <Text fw={700} size="xl">{clients.length}</Text>
+                    <Text fw={700} size="xl">{totalClients}</Text>
                   </div>
                   <Users size={24} color="var(--mantine-color-blue-6)" />
                 </Group>
@@ -322,7 +326,7 @@ export function ClientsContent({ user }: ClientsContentProps) {
           </Grid>
 
           {/* Tabs */}
-          <Tabs value={activeTab} onChange={setActiveTab}>
+          <Tabs value={activeTab} onChange={(value) => setActiveTab(value || 'all')}>
             <Tabs.List>
               <Tabs.Tab value="all">Tous</Tabs.Tab>
               <Tabs.Tab value="new">Nouveaux</Tabs.Tab>
@@ -331,7 +335,7 @@ export function ClientsContent({ user }: ClientsContentProps) {
               <Tabs.Tab value="risk">À Risque</Tabs.Tab>
             </Tabs.List>
 
-            <Tabs.Panel value={activeTab} pt="md">
+            <Tabs.Panel value={activeTab || 'all'} pt="md">
               {/* Filters */}
               <Card shadow="sm" padding="lg" radius="md" withBorder mb="md">
                 <Group gap="md">
@@ -425,7 +429,7 @@ export function ClientsContent({ user }: ClientsContentProps) {
                             <Box>
                               <Text size="xs" c="dimmed">Total dépensé</Text>
                               <Text fw={700} size="lg" c="blue">
-                                {client.totalSpent.toLocaleString()} MAD
+                                {new Intl.NumberFormat('fr-FR').format(client.totalSpent)} MAD
                               </Text>
                             </Box>
 
@@ -485,7 +489,10 @@ export function ClientsContent({ user }: ClientsContentProps) {
                     <Group justify="center" mt="md">
                       <Pagination
                         value={currentPage}
-                        onChange={setCurrentPage}
+                        onChange={async (page) => {
+                          setCurrentPage(page);
+                          await fetchClients(page);
+                        }}
                         total={totalPages}
                       />
                     </Group>
@@ -546,7 +553,7 @@ export function ClientsContent({ user }: ClientsContentProps) {
                   <Group justify="space-between">
                     <div>
                       <Text c="dimmed" size="sm">Total dépensé</Text>
-                      <Text fw={700} size="xl">{selectedClient.totalSpent.toLocaleString()} MAD</Text>
+                      <Text fw={700} size="xl">{new Intl.NumberFormat('fr-FR').format(selectedClient.totalSpent)} MAD</Text>
                     </div>
                     <Text fw={700} size="lg" c="green">💰</Text>
                   </Group>

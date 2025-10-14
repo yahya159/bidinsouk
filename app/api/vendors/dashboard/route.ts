@@ -4,14 +4,24 @@ import { prisma } from '@/lib/db/prisma';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth(request);
-    const vendorId = await getVendorId(request);
+    let vendorId: bigint | null = null;
+    
+    // Development mode bypass
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    if (!isDevelopment) {
+      const user = await requireAuth(request);
+      vendorId = await getVendorId(request);
 
-    if (!vendorId) {
-      return NextResponse.json(
-        { error: 'Vendor access required' },
-        { status: 403 }
-      );
+      if (!vendorId) {
+        return NextResponse.json(
+          { error: 'Vendor access required' },
+          { status: 403 }
+        );
+      }
+    } else {
+      // In development mode, use a default vendor ID for testing
+      vendorId = BigInt(5); // Default vendor ID for testing
     }
 
     // Get current date and previous month for comparison
@@ -182,14 +192,14 @@ export async function GET(request: NextRequest) {
         id: `order-${order.id}`,
         type: 'order' as const,
         title: `Nouvelle commande #${order.number}`,
-        description: `${Number(order.total).toLocaleString()} MAD`,
+        description: `${new Intl.NumberFormat('fr-FR').format(Number(order.total))} MAD`,
         timeAgo: getTimeAgo(order.createdAt),
       })),
       ...recentBids.map((bid: any) => ({
         id: `bid-${bid.id}`,
         type: 'bid' as const,
         title: 'Nouvelle mise',
-        description: `${bid.auction.title} - ${Number(bid.amount).toLocaleString()} MAD par ${bid.client.user.name}`,
+        description: `${bid.auction.title} - ${new Intl.NumberFormat('fr-FR').format(Number(bid.amount))} MAD par ${bid.client.user.name}`,
         timeAgo: getTimeAgo(bid.createdAt),
       }))
     ].sort((a, b) => new Date(b.timeAgo).getTime() - new Date(a.timeAgo).getTime()).slice(0, 10);

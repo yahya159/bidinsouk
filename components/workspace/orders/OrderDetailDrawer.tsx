@@ -327,7 +327,7 @@ export function OrderDetailDrawer({
               <Grid.Col span={6}>
                 <Text size="sm" c="dimmed">Montant total</Text>
                 <Text size="xl" fw={700} c="green">
-                  {order.amount.toLocaleString()} MAD
+                  {new Intl.NumberFormat('fr-FR').format(order.amount)} MAD
                 </Text>
               </Grid.Col>
               <Grid.Col span={6}>
@@ -360,8 +360,8 @@ export function OrderDetailDrawer({
                       </Group>
                     </Table.Td>
                     <Table.Td>{item.quantity}</Table.Td>
-                    <Table.Td>{item.unitPrice.toLocaleString()} MAD</Table.Td>
-                    <Table.Td fw={500}>{item.totalPrice.toLocaleString()} MAD</Table.Td>
+                    <Table.Td>{new Intl.NumberFormat('fr-FR').format(item.unitPrice)} MAD</Table.Td>
+                    <Table.Td fw={500}>{new Intl.NumberFormat('fr-FR').format(item.totalPrice)} MAD</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>

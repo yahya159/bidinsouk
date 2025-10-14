@@ -154,7 +154,7 @@ export function AuctionBidPanel({
 
         notifications.show({
           title: 'Nouvelle enchère',
-          message: `${newBid.bidderName} a misé ${newBid.amount.toLocaleString()} MAD`,
+          message: `${newBid.bidderName} a misé ${new Intl.NumberFormat('fr-FR').format(newBid.amount)} MAD`,
           color: 'blue',
           autoClose: 3000,
         });
@@ -259,7 +259,7 @@ export function AuctionBidPanel({
           </Group>
           <Group justify="space-between">
             <Text size="xl" fw={700} c="blue">
-              {currentBid.toLocaleString()} MAD
+              {new Intl.NumberFormat('fr-FR').format(currentBid)} MAD
             </Text>
             <Text size="sm" c="dimmed">
               Incrément: {increment} MAD
@@ -289,7 +289,7 @@ export function AuctionBidPanel({
                 <div>
                   <Text size="sm" fw={500}>{autoBid.bidderName}</Text>
                   <Text size="xs" c="dimmed">
-                    Max: {autoBid.maxAmount.toLocaleString()} MAD
+                    Max: {new Intl.NumberFormat('fr-FR').format(autoBid.maxAmount)} MAD
                   </Text>
                 </div>
                 <Badge 
@@ -350,7 +350,7 @@ export function AuctionBidPanel({
                 >
                   <Group justify="space-between">
                     <Text size="lg" fw={600} c={bid.isWinning ? 'green' : undefined}>
-                      {bid.amount.toLocaleString()} MAD
+                      {new Intl.NumberFormat('fr-FR').format(bid.amount)} MAD
                     </Text>
                     <Text size="xs" c="dimmed">
                       {formatTimeAgo(bid.timestamp)}
@@ -358,7 +358,7 @@ export function AuctionBidPanel({
                   </Group>
                   {bid.maxBid && (
                     <Text size="xs" c="dimmed">
-                      Enchère max: {bid.maxBid.toLocaleString()} MAD
+                      Enchère max: {new Intl.NumberFormat('fr-FR').format(bid.maxBid)} MAD
                     </Text>
                   )}
                 </Timeline.Item>
@@ -379,7 +379,7 @@ export function AuctionBidPanel({
               <Text size="xs" c="dimmed">Enchère moyenne</Text>
               <Text fw={600}>
                 {bids.length > 0 
-                  ? Math.round(bids.reduce((sum, b) => sum + b.amount, 0) / bids.length).toLocaleString()
+                  ? new Intl.NumberFormat('fr-FR').format(Math.round(bids.reduce((sum, b) => sum + b.amount, 0) / bids.length))
                   : 0
                 } MAD
               </Text>

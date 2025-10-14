@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth/config'
 import { AddToCartDto } from '@/lib/validations/cart'
 import { getCart, addToCart } from '@/lib/services/cart'
+import { prisma } from '@/lib/db/prisma'
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,6 +21,30 @@ export async function GET(request: NextRequest) {
       { error: 'Erreur lors de la récupération du panier' },
       { status: 500 }
     )
+  }
+}
+
+// GET /api/cart/count - Get cart items count
+export async function GET_count(request: NextRequest) {
+  try {
+    const session = await getServerSession(authConfig)
+
+    if (!session?.user) {
+      return NextResponse.json({ count: 0 })
+    }
+
+    // Count cart items for the user
+    const count = await prisma.cartItem.count({
+      where: {
+        cart: {
+          userId: BigInt(session.user.id)
+        }
+      }
+    })
+
+    return NextResponse.json({ count })
+  } catch (error: any) {
+    return NextResponse.json({ count: 0 })
   }
 }
 

@@ -133,7 +133,7 @@ export default function SearchPage() {
                     )}
                     {result.currentBid && (
                       <Text fw={600} c="orange">
-                        {result.currentBid.toLocaleString()} MAD
+                        {new Intl.NumberFormat('fr-FR').format(result.currentBid)} MAD
                       </Text>
                     )}
                     {result.status && (

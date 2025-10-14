@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // Convertir les BigInt en string pour éviter les erreurs de sérialisation
     const serializedVendors = vendors.map(vendor => ({
       ...vendor,
-      id: vendor.id,
+      id: vendor.id.toString(), // Ajout de la conversion en string
       userId: vendor.user.id.toString(),
       user: {
         ...vendor.user,
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       stores: vendor.stores.map(store => ({
         ...store,
         id: store.id.toString(),
-        sellerId: store.sellerId,
+        sellerId: store.sellerId.toString(), // Ajout de la conversion en string
         createdAt: store.createdAt.toString()
       }))
     }))

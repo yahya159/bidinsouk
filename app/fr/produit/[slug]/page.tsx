@@ -209,19 +209,19 @@ export default async function ProductPage({
                       <Group justify="space-between">
                         <Text size="sm" c="dimmed">Enchère actuelle</Text>
                         <Text size="xl" fw={700} c="orange">
-                          {product.currentBidMAD.toLocaleString()} MAD
+                          {new Intl.NumberFormat('fr-FR').format(product.currentBidMAD)} MAD
                         </Text>
                       </Group>
                       <Group justify="space-between">
                         <Text size="sm" c="dimmed">Prix de départ</Text>
                         <Text size="sm" c="dimmed">
-                          {product.startingBidMAD.toLocaleString()} MAD
+                          {new Intl.NumberFormat('fr-FR').format(product.startingBidMAD)} MAD
                         </Text>
                       </Group>
                       <Group justify="space-between">
                         <Text size="sm" c="dimmed">Incrément minimum</Text>
                         <Text size="sm" fw={500}>
-                          {product.minIncrementMAD.toLocaleString()} MAD
+                          {new Intl.NumberFormat('fr-FR').format(product.minIncrementMAD)} MAD
                         </Text>
                       </Group>
                     </Stack>
@@ -302,7 +302,7 @@ export default async function ProductPage({
                       Enchère actuelle
                     </Text>
                     <Text size="xl" fw={700} c="#ff6b35">
-                      {product.currentBidMAD.toLocaleString()} MAD
+                      {new Intl.NumberFormat('fr-FR').format(product.currentBidMAD)} MAD
                     </Text>
                   </Box>
                   <Divider orientation="vertical" />
@@ -311,7 +311,7 @@ export default async function ProductPage({
                       Prix de départ
                     </Text>
                     <Text size="lg" fw={500} c="dimmed">
-                      {product.startingBidMAD.toLocaleString()} MAD
+                      {new Intl.NumberFormat('fr-FR').format(product.startingBidMAD)} MAD
                     </Text>
                   </Box>
                   <Divider orientation="vertical" />
@@ -320,7 +320,7 @@ export default async function ProductPage({
                       Incrément min.
                     </Text>
                     <Text size="lg" fw={500} c="dark">
-                      {product.minIncrementMAD.toLocaleString()} MAD
+                      {new Intl.NumberFormat('fr-FR').format(product.minIncrementMAD)} MAD
                     </Text>
                   </Box>
                   <Divider orientation="vertical" />

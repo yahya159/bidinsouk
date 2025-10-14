@@ -249,7 +249,7 @@ export function SearchBar({ placeholder = 'Rechercher des produits, enchères, b
                         )}
                         {result.currentBid && (
                           <Text size="xs" fw={500} c="orange">
-                            {result.currentBid.toLocaleString()} MAD
+                            {new Intl.NumberFormat('fr-FR').format(result.currentBid)} MAD
                           </Text>
                         )}
                       </Stack>
