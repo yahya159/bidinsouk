@@ -1,80 +1,169 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authConfig as authOptions } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/prisma';
+import { isAdmin } from '@/lib/admin/permissions';
+import { activityLogger } from '@/lib/admin/activity-logger';
 
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  const role = req.headers.get('x-user-role')
-  if (!userId) return null
-  return { userId, role }
-}
-
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const user = getCurrentUser(req)
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user || !isAdmin(session)) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const { searchParams } = new URL(req.url)
-    const limit = parseInt(searchParams.get('limit') || '50')
-    const offset = parseInt(searchParams.get('offset') || '0')
-    const type = searchParams.get('type') || undefined
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const pageSize = parseInt(searchParams.get('pageSize') || '10');
+    const status = searchParams.get('status');
+    const targetType = searchParams.get('targetType');
+    const search = searchParams.get('search');
 
-    // Récupérer tous les rapports avec les informations nécessaires
-    const whereClause: any = {}
-    if (type) {
-      whereClause.type = type
+    const skip = (page - 1) * pageSize;
+
+    // Build where clause
+    const where: any = {};
+
+    if (status) {
+      where.status = status;
     }
 
-    const reports = await prisma.auditLog.findMany({
-      where: whereClause,
-      include: {
-        actor: {
-          select: {
-            id: true,
-            name: true,
-          }
+    if (targetType) {
+      where.targetType = targetType;
+    }
+
+    if (search) {
+      where.OR = [
+        { reason: { contains: search } },
+        { details: { contains: search } },
+      ];
+    }
+
+    // Fetch reports with pagination
+    const [reports, totalCount] = await Promise.all([
+      prisma.abuseReport.findMany({
+        where,
+        skip,
+        take: pageSize,
+        include: {
+          reporter: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatarUrl: true,
+            },
+          },
         },
-        vendor: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                name: true,
-              }
-            }
-          }
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      prisma.abuseReport.count({ where }),
+    ]);
+
+    // Enrich reports with target information
+    const enrichedReports = await Promise.all(
+      reports.map(async (report) => {
+        let targetInfo = null;
+
+        if (report.targetType === 'Product') {
+          targetInfo = await prisma.product.findUnique({
+            where: { id: report.targetId },
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              store: {
+                select: {
+                  name: true,
+                  seller: {
+                    select: {
+                      user: {
+                        select: {
+                          name: true,
+                          email: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          });
+        } else if (report.targetType === 'Auction') {
+          targetInfo = await prisma.auction.findUnique({
+            where: { id: report.targetId },
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              store: {
+                select: {
+                  name: true,
+                  seller: {
+                    select: {
+                      user: {
+                        select: {
+                          name: true,
+                          email: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          });
+        } else if (report.targetType === 'User') {
+          targetInfo = await prisma.user.findUnique({
+            where: { id: report.targetId },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          });
         }
+
+        return {
+          ...report,
+          targetInfo,
+        };
+      })
+    );
+
+    // Log activity
+    await activityLogger.log(
+      BigInt(session.user.id),
+      {
+        action: 'REPORTS_VIEWED',
+        entity: 'AbuseReport',
+        entityId: BigInt(0),
+        metadata: { page, pageSize, filters: { status, targetType, search } },
       },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset
-    })
+      request
+    );
 
-    const total = await prisma.auditLog.count({
-      where: whereClause
-    })
-
-    // Convertir les BigInt en string pour la sérialisation
-    const serializedReports = reports.map(report => ({
-      ...report,
-      id: report.id.toString(),
-      actorId: report.actorId.toString(),
-      vendorId: report.vendorId?.toString(),
-      createdAt: report.createdAt.toISOString(),
-      actor: {
-        id: report.actor.id.toString(),
-        name: report.actor.name
+    return NextResponse.json({
+      reports: enrichedReports,
+      pagination: {
+        page,
+        pageSize,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
       },
-      vendor: report.vendor ? {
-        id: report.vendor.id.toString(),
-        name: report.vendor.user.name
-      } : null
-    }))
-
-    return NextResponse.json({ reports: serializedReports, total })
-  } catch (error: any) {
-    console.error('Error fetching admin reports:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    });
+  } catch (error) {
+    console.error('Error fetching reports:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch reports' },
+      { status: 500 }
+    );
   }
 }

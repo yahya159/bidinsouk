@@ -6,8 +6,9 @@ import { prisma } from '@/lib/db/prisma';
 // GET /api/vendors/auctions/[id]/bids - Get bid history for auction
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(authConfig);
     
@@ -18,7 +19,7 @@ export async function GET(
       );
     }
 
-    const auctionId = parseInt(params.id);
+    const auctionId = parseInt(id);
     
     if (isNaN(auctionId)) {
       return NextResponse.json(
@@ -40,7 +41,9 @@ export async function GET(
       include: {
         store: {
           select: {
-            userId: true,
+            id: true,
+            name: true,
+            sellerId: true,
           }
         }
       }
@@ -54,7 +57,7 @@ export async function GET(
     }
 
     // Check access permissions
-    const isOwner = auction.store.userId === session.user.id;
+    const isOwner = auction.store.sellerId.toString() === session.user.id;
     const isAdmin = session.user.role === 'ADMIN';
     
     if (!isOwner && !isAdmin) {
@@ -87,11 +90,15 @@ export async function GET(
     const bids = await prisma.bid.findMany({
       where: whereClause,
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+        client: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              }
+            }
           }
         }
       },
@@ -108,16 +115,16 @@ export async function GET(
       isWinning: bid.isWinning,
       isAutomatic: bid.isAutomatic,
       bidder: {
-        id: isAdmin ? bid.user.id : 'anonymous',
-        name: isAdmin ? bid.user.name : `Utilisateur ${bid.user.id.toString().slice(-4)}`,
-        email: isAdmin ? bid.user.email : null,
+        id: isAdmin ? bid.client.user.id : 'anonymous',
+        name: isAdmin ? bid.client.user.name : `Utilisateur ${bid.client.user.id.toString().slice(-4)}`,
+        email: isAdmin ? bid.client.user.email : null,
       },
       position: sortOrder === 'desc' ? skip + index + 1 : totalBids - skip - index,
     }));
 
     // Calculate bid statistics
     const bidAmounts = bids.map((bid: any) => bid.amount);
-    const uniqueBidders = new Set(bids.map((bid: any) => bid.userId));
+    const uniqueBidders = new Set(bids.map((bid: any) => bid.clientId));
     
     const statistics = {
       totalBids: totalBids,
@@ -186,8 +193,8 @@ export async function GET(
         title: auction.title,
         status: auction.status,
         currentBid: auction.currentBid,
-        startingPrice: auction.startingPrice,
-        endTime: auction.endTime,
+        startPrice: auction.startPrice,
+        endAt: auction.endAt,
       }
     };
 

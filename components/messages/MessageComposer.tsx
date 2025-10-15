@@ -42,7 +42,7 @@ export const MessageComposer = ({ threadId, onMessageSent }: MessageComposerProp
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLButtonElement>(null);
   const refreshMessageCounts = useRefreshMessageCounts();
 
   // Raccourci clavier pour envoyer (Ctrl+Enter)

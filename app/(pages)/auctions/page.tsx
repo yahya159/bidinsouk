@@ -1,13 +1,18 @@
 'use client'
 
-import { Container, Title, Text, Stack, Loader, Alert, SimpleGrid, Card, Image, Badge, Group, Button, TextInput, Select, Tabs, Drawer, Checkbox, RangeSlider, NumberInput, ActionIcon, Chip } from '@mantine/core'
+import { Container, Title, Text, Stack, Alert, SimpleGrid, TextInput, Select, Tabs, Drawer, Checkbox, RangeSlider, NumberInput, ActionIcon, Chip, Card, Group, Button, Badge } from '@mantine/core'
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { Heart, Search, Filter, X, Clock, Gavel, Eye } from 'lucide-react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
+import { Search, Filter, X, Gavel, Package } from 'lucide-react'
 import { useDebouncedValue, useDisclosure } from '@mantine/hooks'
+import { notifications } from '@mantine/notifications'
+import { AuctionCard, type AuctionCardProps } from '@/components/cards/AuctionCard'
+import { AuctionCardSkeleton } from '@/components/skeletons/AuctionCardSkeleton'
+import { EmptyState } from '@/components/shared/EmptyState'
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 
-interface AuctionCard {
+interface AuctionListItem {
   id: string
   slug: string
   title: string
@@ -20,9 +25,16 @@ interface AuctionCard {
   endsAtISO: string
   status: "live" | "upcoming" | "ended"
   bidsCount: number
+  watchersCount: number
   hasBuyNow?: boolean
   reserveMet?: boolean
   seller?: { name: string; storeSlug: string }
+  condition?: 'NEW' | 'USED'
+  reservePriceMAD?: number | null
+  buyNowPriceMAD?: number | null
+  minIncrementMAD: number
+  autoExtend: boolean
+  extensionCount: number
 }
 
 interface Filters {
@@ -43,7 +55,7 @@ export default function AuctionsPage() {
   const searchParams = useSearchParams()
   const [opened, { open, close }] = useDisclosure(false)
   
-  const [auctions, setAuctions] = useState<AuctionCard[]>([])
+  const [auctions, setAuctions] = useState<AuctionListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [total, setTotal] = useState(0)
@@ -106,14 +118,24 @@ export default function AuctionsPage() {
           id: auction.id.toString(),
           slug: `auction-${auction.id}`,
           title: auction.title,
-          imageUrl: auction.image || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400',
-          category: { name: 'Électronique', slug: 'electronique' },
-          currentBidMAD: auction.currentPrice || auction.currentBid || 0,
-          startingBidMAD: auction.startPrice,
+          imageUrl: auction.image || auction.images?.[0]?.url || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400',
+          category: { name: auction.category || 'Électronique', slug: 'electronique' },
+          currentBidMAD: Number(auction.currentPrice ?? auction.currentBid ?? auction.startPrice ?? 0),
+          startingBidMAD: Number(auction.startPrice ?? 0),
           endsAtISO: auction.endAt,
-          status: auction.status === 'live' ? 'live' : auction.status === 'ended' ? 'ended' : 'upcoming',
-          bidsCount: Math.floor(Math.random() * 20) + 1,
-          seller: { name: auction.store?.name || 'Vendeur', storeSlug: 'vendeur' }
+          status: auction.status === 'ACTIVE' ? 'live' : auction.status === 'ENDED' ? 'ended' : 'upcoming',
+          bidsCount: Number(auction.bidsCount ?? Math.floor(Math.random() * 20) + 1),
+          watchersCount: Number(auction.watchers ?? Math.floor(Math.random() * 50)),
+          reserveMet: typeof auction.reserveMet === 'boolean'
+            ? auction.reserveMet
+            : (auction.reservePrice != null ? Number(auction.currentBid ?? 0) >= Number(auction.reservePrice) : false),
+          condition: auction.condition,
+          seller: auction.store?.name ? { name: auction.store.name, storeSlug: auction.store.slug || 'vendeur' } : undefined,
+          reservePriceMAD: auction.reservePrice != null ? Number(auction.reservePrice) : null,
+          buyNowPriceMAD: auction.buyNowPrice != null ? Number(auction.buyNowPrice) : null,
+          minIncrementMAD: Number(auction.minIncrement ?? auction.minBidIncrement ?? 10),
+          autoExtend: Boolean(auction.autoExtend),
+          extensionCount: Number(auction.extensionCount ?? 0)
         }))
         
         setAuctions(transformedAuctions)
@@ -150,48 +172,6 @@ export default function AuctionsPage() {
     router.replace(`/auctions${newUrl}`, { scroll: false })
   }, [filters, router])
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'decimal',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(price)
-  }
-
-  const formatTimeLeft = (endsAtISO: string) => {
-    const now = new Date()
-    const endTime = new Date(endsAtISO)
-    const diff = endTime.getTime() - now.getTime()
-    
-    if (diff <= 0) return 'Terminé'
-    
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-    
-    if (days > 0) return `${days}j ${hours}h`
-    if (hours > 0) return `${hours}h ${minutes}m`
-    return `${minutes}m`
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'live': return 'green'
-      case 'upcoming': return 'gray'
-      case 'ended': return 'red'
-      default: return 'blue'
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'live': return 'En cours'
-      case 'upcoming': return 'À venir'
-      case 'ended': return 'Terminée'
-      default: return status
-    }
-  }
-
   const clearFilters = () => {
     setFilters({
       q: '',
@@ -219,6 +199,59 @@ export default function AuctionsPage() {
     return count
   }, [filters])
 
+  const handleAddToWatchlist = async (auctionId: string) => {
+    try {
+      const response = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: auctionId, action: 'add' }),
+      })
+
+      if (response.ok) {
+        notifications.show({
+          title: 'Succès',
+          message: 'Enchère ajoutée aux favoris',
+          color: 'green',
+        })
+      }
+    } catch (error) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible d\'ajouter aux favoris',
+        color: 'red',
+      })
+    }
+  }
+
+  const mapStatusToCard = (status: AuctionListItem['status']): AuctionCardProps['status'] => {
+    switch (status) {
+      case 'live':
+        return 'ACTIVE'
+      case 'ended':
+        return 'ENDED'
+      default:
+        return 'SCHEDULED'
+    }
+  }
+
+  const createQuickBidHandler = (auctionId: string) => (event: ReactMouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    router.push(`/auction/${auctionId}`)
+  }
+
+  const createWatchToggleHandler = (auctionId: string) => (event: ReactMouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    handleAddToWatchlist(auctionId)
+  }
+
+  const createBuyNowHandler = (auctionId: string) => (event: ReactMouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    router.push(`/auction/${auctionId}`)
+  }
+
   const FiltersPanel = () => (
     <Stack gap="lg">
       <div>
@@ -241,33 +274,6 @@ export default function AuctionsPage() {
                   categories: checked 
                     ? [...prev.categories, category.slug]
                     : prev.categories.filter(c => c !== category.slug)
-                }))
-              }}
-            />
-          ))}
-        </Stack>
-      </div>
-
-      <div>
-        <Text fw={600} mb="md">Marques</Text>
-        <Stack gap="xs">
-          {brands.map((brand) => (
-            <Checkbox
-              key={brand.name}
-              label={
-                <Group justify="space-between" style={{ width: '100%' }}>
-                  <Text size="sm">{brand.name}</Text>
-                  <Badge size="xs" variant="light">{brand.count}</Badge>
-                </Group>
-              }
-              checked={filters.brands.includes(brand.name)}
-              onChange={(event) => {
-                const checked = event.currentTarget.checked
-                setFilters(prev => ({
-                  ...prev,
-                  brands: checked 
-                    ? [...prev.brands, brand.name]
-                    : prev.brands.filter(b => b !== brand.name)
                 }))
               }}
             />
@@ -326,40 +332,8 @@ export default function AuctionsPage() {
           ]}
         />
       </div>
-
-      <div>
-        <Text fw={600} mb="md">Options</Text>
-        <Stack gap="xs">
-          <Checkbox
-            label="Achat immédiat disponible"
-            checked={filters.hasBuyNow}
-            onChange={(event) => setFilters(prev => ({ ...prev, hasBuyNow: event.currentTarget.checked }))}
-          />
-          <Select
-            placeholder="Statut de réserve"
-            value={filters.reserve}
-            onChange={(value) => setFilters(prev => ({ ...prev, reserve: value || '' }))}
-            data={[
-              { value: '', label: 'Toutes' },
-              { value: 'met', label: 'Réserve atteinte' },
-              { value: 'not_met', label: 'Réserve non atteinte' }
-            ]}
-          />
-        </Stack>
-      </div>
     </Stack>
   )
-
-  if (loading) {
-    return (
-      <Container size="7xl" py="xl">
-        <Stack align="center" justify="center" style={{ height: '400px' }}>
-          <Loader size="xl" />
-          <Text>Chargement des enchères...</Text>
-        </Stack>
-      </Container>
-    )
-  }
 
   if (error) {
     return (
@@ -367,234 +341,174 @@ export default function AuctionsPage() {
         <Alert title="Erreur" color="red">
           {error}
         </Alert>
+        <Button mt="md" onClick={() => fetchAuctions()}>
+          Réessayer
+        </Button>
       </Container>
     )
   }
 
   return (
-    <div style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
-      <Container size="7xl" py="xl">
-        {/* Header */}
-        <Stack gap="xl" mb="xl">
-          <div>
-            <Title order={1} mb="md">Toutes les enchères</Title>
-            <TextInput
-              placeholder="Rechercher des enchères..."
-              leftSection={<Search size={18} />}
-              value={filters.q}
-              onChange={(event) => setFilters(prev => ({ ...prev, q: event.currentTarget.value }))}
-              size="md"
-              style={{ maxWidth: 400 }}
-            />
-          </div>
+    <ErrorBoundary>
+      <div style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+        <Container size="7xl" py="xl">
+          {/* Header */}
+          <Stack gap="xl" mb="xl">
+            <div>
+              <Title order={1} mb="md">Toutes les enchères</Title>
+              <TextInput
+                placeholder="Rechercher des enchères..."
+                leftSection={<Search size={18} />}
+                value={filters.q}
+                onChange={(event) => setFilters(prev => ({ ...prev, q: event.currentTarget.value }))}
+                size="md"
+                style={{ maxWidth: 400 }}
+                aria-label="Rechercher des enchères"
+              />
+            </div>
 
-          {/* Status Tabs */}
-          <Tabs value={filters.status} onChange={(value) => setFilters(prev => ({ ...prev, status: value || 'live' }))}>
-            <Tabs.List>
-              <Tabs.Tab value="live">En cours</Tabs.Tab>
-              <Tabs.Tab value="upcoming">À venir</Tabs.Tab>
-              <Tabs.Tab value="ended">Terminées</Tabs.Tab>
-            </Tabs.List>
-          </Tabs>
-        </Stack>
+            {/* Status Tabs */}
+            <Tabs value={filters.status} onChange={(value) => setFilters(prev => ({ ...prev, status: value || 'live' }))}>
+              <Tabs.List>
+                <Tabs.Tab value="live">En cours</Tabs.Tab>
+                <Tabs.Tab value="upcoming">À venir</Tabs.Tab>
+                <Tabs.Tab value="ended">Terminées</Tabs.Tab>
+              </Tabs.List>
+            </Tabs>
+          </Stack>
 
-        <div style={{ display: 'flex', gap: '24px' }}>
-          {/* Desktop Filters */}
-          <div style={{ display: 'none', width: '320px' }} className="lg:block">
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Group justify="space-between" mb="lg">
-                <Text fw={600}>Filtres</Text>
-                {activeFiltersCount > 0 && (
-                  <Button variant="subtle" size="xs" onClick={clearFilters}>
-                    Réinitialiser
-                  </Button>
-                )}
-              </Group>
-              <FiltersPanel />
-            </Card>
-          </div>
-
-          {/* Main Content */}
-          <div style={{ flex: 1 }}>
-            {/* Results Toolbar */}
-            <Card shadow="sm" padding="md" radius="md" withBorder mb="lg">
-              <Group justify="space-between">
-                <div>
-                  <Text fw={500}>{total} résultat{total > 1 ? 's' : ''} trouvé{total > 1 ? 's' : ''}</Text>
+          <div style={{ display: 'flex', gap: '24px' }}>
+            {/* Desktop Filters */}
+            <div style={{ display: 'none', width: '320px' }} className="lg:block">
+              <Card shadow="sm" padding="lg" radius="md" withBorder>
+                <Group justify="space-between" mb="lg">
+                  <Text fw={600}>Filtres</Text>
                   {activeFiltersCount > 0 && (
-                    <Group gap="xs" mt="xs">
-                      <Text size="sm" c="dimmed">Filtres actifs:</Text>
-                      {filters.q && (
-                        <Chip
-                          checked={false}
-                          onChange={() => setFilters(prev => ({ ...prev, q: '' }))}
-                          size="sm"
-                        >
-                          "{filters.q}" <X size={12} />
-                        </Chip>
-                      )}
-                      {filters.categories.length > 0 && (
-                        <Chip
-                          checked={false}
-                          onChange={() => setFilters(prev => ({ ...prev, categories: [] }))}
-                          size="sm"
-                        >
-                          {filters.categories.length} catégorie{filters.categories.length > 1 ? 's' : ''} <X size={12} />
-                        </Chip>
-                      )}
-                    </Group>
+                    <Button variant="subtle" size="xs" onClick={clearFilters}>
+                      Réinitialiser
+                    </Button>
                   )}
-                </div>
-                
-                <Group>
-                  {/* Mobile Filter Button */}
-                  <ActionIcon variant="outline" onClick={open} className="lg:hidden">
-                    <Filter size={18} />
-                    {activeFiltersCount > 0 && (
-                      <Badge size="xs" style={{ position: 'absolute', top: -5, right: -5 }}>
-                        {activeFiltersCount}
-                      </Badge>
-                    )}
-                  </ActionIcon>
-                  
-                  <Select
-                    placeholder="Trier par"
-                    value={filters.sort}
-                    onChange={(value) => setFilters(prev => ({ ...prev, sort: value || 'ending_soon' }))}
-                    data={[
-                      { value: 'ending_soon', label: 'Finissant bientôt' },
-                      { value: 'newest', label: 'Plus récent' },
-                      { value: 'price_asc', label: 'Prix croissant' },
-                      { value: 'price_desc', label: 'Prix décroissant' },
-                      { value: 'popular', label: 'Populaire' }
-                    ]}
-                    style={{ width: 200 }}
-                  />
                 </Group>
-              </Group>
-            </Card>
+                <FiltersPanel />
+              </Card>
+            </div>
 
-            {/* Auctions Grid */}
-            {auctions.length === 0 ? (
-              <Alert title="Aucune enchère trouvée" color="blue">
-                Aucune enchère ne correspond à vos critères de recherche.
-              </Alert>
-            ) : (
-              <SimpleGrid cols={{ base: 1, sm: 2, lg: 3, xl: 4 }} spacing="lg">
-                {auctions.map((auction) => (
-                  <Card key={auction.id} shadow="sm" padding="lg" radius="md" withBorder className="hover:shadow-lg transition-shadow">
-                    <Card.Section>
-                      <div style={{ position: 'relative', height: '200px', backgroundColor: '#f8f9fa' }}>
-                        <Image
-                          src={auction.imageUrl}
-                          alt={auction.title}
-                          height={200}
-                          fit="cover"
-                        />
-                        
-                        {/* Status Badge */}
-                        <Badge 
-                          color={getStatusColor(auction.status)} 
-                          style={{ position: 'absolute', top: '8px', right: '8px' }}
-                          size="sm"
-                        >
-                          {getStatusLabel(auction.status)}
-                        </Badge>
-
-                        {/* Discount Badge */}
-                        {auction.discountPct && (
-                          <Badge 
-                            color="red" 
-                            style={{ position: 'absolute', top: '8px', left: '8px' }}
+            {/* Main Content */}
+            <div style={{ flex: 1 }}>
+              {/* Results Toolbar */}
+              <Card shadow="sm" padding="md" radius="md" withBorder mb="lg">
+                <Group justify="space-between">
+                  <div>
+                    <Text fw={500}>{total} résultat{total > 1 ? 's' : ''} trouvé{total > 1 ? 's' : ''}</Text>
+                    {activeFiltersCount > 0 && (
+                      <Group gap="xs" mt="xs">
+                        <Text size="sm" c="dimmed">Filtres actifs:</Text>
+                        {filters.q && (
+                          <Chip
+                            checked={false}
+                            onChange={() => setFilters(prev => ({ ...prev, q: '' }))}
                             size="sm"
                           >
-                            -{auction.discountPct}%
-                          </Badge>
-                        )}
-
-                        {/* Wishlist Button */}
-                        <ActionIcon
-                          variant="light"
-                          style={{ position: 'absolute', bottom: '8px', right: '8px' }}
-                          size="sm"
-                        >
-                          <Heart size={16} />
-                        </ActionIcon>
-                      </div>
-                    </Card.Section>
-
-                    <Stack gap="sm" mt="md">
-                      <Text fw={500} size="sm" lineClamp={2}>
-                        {auction.title}
-                      </Text>
-
-                      <div>
-                        <Text size="xs" c="dimmed">Enchère actuelle</Text>
-                        <Group gap="xs" align="baseline">
-                          <Text fw={700} size="lg" c="orange">
-                            {formatPrice(auction.currentBidMAD)} د.م
-                          </Text>
-                          {auction.startingBidMAD && auction.startingBidMAD !== auction.currentBidMAD && (
-                            <Text size="xs" c="dimmed" td="line-through">
-                              {formatPrice(auction.startingBidMAD)} د.م
-                            </Text>
-                          )}
-                        </Group>
-                      </div>
-
-                      {/* Countdown */}
-                      <Group gap="xs" align="center">
-                        <Clock size={14} />
-                        <Text size="xs" c="dimmed">
-                          {auction.status === 'live' ? formatTimeLeft(auction.endsAtISO) : 
-                           auction.status === 'upcoming' ? `Débute le ${new Date(auction.endsAtISO).toLocaleDateString('fr-FR')}` :
-                           'Terminé'}
-                        </Text>
-                      </Group>
-
-                      {/* Bids count and brand */}
-                      <Group justify="space-between">
-                        <Group gap="xs">
-                          <Gavel size={14} />
-                          <Text size="xs" c="dimmed">{auction.bidsCount} enchère{auction.bidsCount > 1 ? 's' : ''}</Text>
-                        </Group>
-                        {auction.brand && (
-                          <Text size="xs" c="dimmed">{auction.brand}</Text>
+                            "{filters.q}" <X size={12} />
+                          </Chip>
                         )}
                       </Group>
+                    )}
+                  </div>
+                  
+                  <Group>
+                    <ActionIcon variant="outline" onClick={open} className="lg:hidden" aria-label="Ouvrir les filtres">
+                      <Filter size={18} />
+                      {activeFiltersCount > 0 && (
+                        <Badge size="xs" style={{ position: 'absolute', top: -5, right: -5 }}>
+                          {activeFiltersCount}
+                        </Badge>
+                      )}
+                    </ActionIcon>
+                    
+                    <Select
+                      placeholder="Trier par"
+                      value={filters.sort}
+                      onChange={(value) => setFilters(prev => ({ ...prev, sort: value || 'ending_soon' }))}
+                      data={[
+                        { value: 'ending_soon', label: 'Finissant bientôt' },
+                        { value: 'newest', label: 'Plus récent' },
+                        { value: 'price_asc', label: 'Prix croissant' },
+                        { value: 'price_desc', label: 'Prix décroissant' },
+                        { value: 'popular', label: 'Populaire' }
+                      ]}
+                      style={{ width: 200 }}
+                    />
+                  </Group>
+                </Group>
+              </Card>
 
-                      {/* CTA Button */}
-                      <Button 
-                        variant={auction.status === 'live' ? 'filled' : 'outline'}
-                        size="sm" 
-                        fullWidth
-                        component={Link}
-                        href={`/auction/${auction.id}`}
-                        leftSection={auction.status === 'live' ? <Gavel size={16} /> : <Eye size={16} />}
-                      >
-                        {auction.status === 'live' ? 'Enchérir' : 'Voir'}
+              {/* Auctions Grid */}
+              {loading ? (
+                <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
+                  {Array.from({ length: 9 }).map((_, i) => (
+                    <AuctionCardSkeleton key={i} />
+                  ))}
+                </SimpleGrid>
+              ) : auctions.length === 0 ? (
+                <EmptyState
+                  icon={Gavel}
+                  title="Aucune enchère trouvée"
+                  description="Aucune enchère ne correspond à vos critères de recherche. Essayez de modifier vos filtres."
+                  action={
+                    activeFiltersCount > 0 ? (
+                      <Button onClick={clearFilters}>
+                        Réinitialiser les filtres
                       </Button>
-                    </Stack>
-                  </Card>
-                ))}
-              </SimpleGrid>
-            )}
+                    ) : undefined
+                  }
+                />
+              ) : (
+                <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
+                  {auctions.map((auction) => (
+                    <AuctionCard
+                      key={auction.id}
+                      id={auction.id}
+                      title={auction.title}
+                      imageUrl={auction.imageUrl}
+                      currentBid={auction.currentBidMAD}
+                      startPrice={auction.startingBidMAD || 0}
+                      reservePrice={auction.reservePriceMAD ?? null}
+                      reserveMet={auction.reserveMet ?? false}
+                      buyNowPrice={auction.buyNowPriceMAD ?? null}
+                      minIncrement={auction.minIncrementMAD}
+                      endAt={auction.endsAtISO}
+                      status={mapStatusToCard(auction.status)}
+                      autoExtend={auction.autoExtend}
+                      extensionCount={auction.extensionCount}
+                      category={auction.category.name}
+                      bidsCount={auction.bidsCount}
+                      watchersCount={auction.watchersCount}
+                      seller={auction.seller ? { name: auction.seller.name } : undefined}
+                      onQuickBid={createQuickBidHandler(auction.id)}
+                      onToggleWatch={createWatchToggleHandler(auction.id)}
+                      onBuyNow={auction.buyNowPriceMAD != null ? createBuyNowHandler(auction.id) : undefined}
+                    />
+                  ))}
+                </SimpleGrid>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Mobile Filters Drawer */}
-        <Drawer opened={opened} onClose={close} title="Filtres" position="right" size="sm">
-          <FiltersPanel />
-          <Group mt="xl">
-            <Button variant="outline" onClick={clearFilters} flex={1}>
-              Réinitialiser
-            </Button>
-            <Button onClick={close} flex={1}>
-              Appliquer
-            </Button>
-          </Group>
-        </Drawer>
-      </Container>
-    </div>
+          {/* Mobile Filters Drawer */}
+          <Drawer opened={opened} onClose={close} title="Filtres" position="right" size="sm">
+            <FiltersPanel />
+            <Group mt="xl">
+              <Button variant="outline" onClick={clearFilters} flex={1}>
+                Réinitialiser
+              </Button>
+              <Button onClick={close} flex={1}>
+                Appliquer
+              </Button>
+            </Group>
+          </Drawer>
+        </Container>
+      </div>
+    </ErrorBoundary>
   )
 }

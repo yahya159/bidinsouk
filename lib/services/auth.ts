@@ -18,6 +18,7 @@ export async function createUser(data: {
       phone: data.phone,
       locale: data.locale || 'fr',
       role: 'CLIENT',
+      roles: JSON.stringify(['CLIENT']), // Initialize roles array
       client: { create: {} }
     }
   })

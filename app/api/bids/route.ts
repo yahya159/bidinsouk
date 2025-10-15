@@ -1,57 +1,98 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authConfig } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/prisma';
+import { placeBid } from '@/lib/services/bids';
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authConfig);
+    
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Non autorisé' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
-    const { productId, amountMAD } = body;
+    const { auctionId, amount } = body;
 
     // Validation
-    if (!productId || !amountMAD || typeof amountMAD !== 'number') {
+    if (!auctionId || !amount || typeof amount !== 'number') {
       return NextResponse.json(
         { error: 'Invalid request data' },
         { status: 400 }
       );
     }
 
-    // In production, you would:
-    // 1. Verify user authentication
-    // 2. Check if auction is still active
-    // 3. Validate bid amount against current bid + minimum increment
-    // 4. Check if user is not the seller
-    // 5. Save bid to database
-    // 6. Update product's current bid
-    // 7. Send notifications
+    // Get client ID
+    const client = await prisma.client.findUnique({
+      where: { userId: BigInt(session.user.id) }
+    });
 
-    // Mock validation
-    if (amountMAD < 290) { // Assuming current bid is 280 + 10 min increment
+    if (!client) {
       return NextResponse.json(
-        { error: 'Bid amount too low', minRequired: 290 },
+        { error: 'Client profile required' },
+        { status: 403 }
+      );
+    }
+
+    // Place the bid using the service
+    const result = await placeBid(
+      Number(auctionId),
+      Number(client.id),
+      amount
+    );
+
+    return NextResponse.json({
+      success: true,
+      bid: {
+        id: result.bid.id.toString(),
+        bidder: {
+          id: session.user.id,
+          displayName: session.user.name,
+          avatarUrl: null // Would need to get from user profile
+        },
+        amount,
+        placedAtISO: result.bid.createdAt.toISOString()
+      },
+      newCurrentBid: Number(result.updatedAuction.currentBid)
+    });
+
+  } catch (error: any) {
+    console.error('Error placing bid:', error);
+    
+    if (error.message === 'Auction not found') {
+      return NextResponse.json(
+        { error: 'Enchère non trouvée' },
+        { status: 404 }
+      );
+    }
+    
+    if (error.message === 'Auction is not running') {
+      return NextResponse.json(
+        { error: 'Cette enchère n\'est pas active' },
+        { status: 400 }
+      );
+    }
+    
+    if (error.message === 'Auction has ended') {
+      return NextResponse.json(
+        { error: 'Cette enchère est terminée' },
+        { status: 400 }
+      );
+    }
+    
+    if (error.message.startsWith('Bid must be at least')) {
+      return NextResponse.json(
+        { error: error.message },
         { status: 400 }
       );
     }
 
-    // Simulate successful bid placement
-    const newBid = {
-      id: Date.now().toString(),
-      bidder: {
-        id: 'current-user',
-        displayName: 'Vous',
-        avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100'
-      },
-      amountMAD,
-      placedAtISO: new Date().toISOString()
-    };
-
-    return NextResponse.json({
-      success: true,
-      bid: newBid,
-      newCurrentBid: amountMAD
-    });
-
-  } catch (error) {
-    console.error('Error placing bid:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Erreur interne du serveur' },
       { status: 500 }
     );
   }

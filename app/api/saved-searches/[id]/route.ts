@@ -1,24 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { deleteSavedSearch } from '@/lib/services/savedSearch'
-
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  const clientId = req.headers.get('x-client-id')
-  if (!userId || !clientId) return null
-  return { userId: BigInt(userId), clientId: BigInt(clientId) }
-}
+import { requireAuth, getClientId } from '@/lib/auth/api-auth'
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: paramsPromise }: { params: Promise<{ id: string }> }
 ) {
+  const params = await paramsPromise
   try {
-    const user = getCurrentUser(req)
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const user = await requireAuth(req)
+    
+    const clientId = await getClientId(req)
+    if (!clientId) {
+      return NextResponse.json(
+        { 
+          error: 'Client profile required',
+          message: 'Client profile will be created automatically'
+        },
+        { status: 403 }
+      )
+    }
 
-    await deleteSavedSearch(BigInt(params.id), user.clientId)
+    await deleteSavedSearch(BigInt(params.id), clientId)
     return NextResponse.json({ success: true })
   } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 }

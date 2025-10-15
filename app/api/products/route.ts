@@ -1,110 +1,56 @@
-import { prisma } from '@/lib/db/prisma';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server'
+import { successResponse, ErrorResponses } from '@/lib/api/responses'
+import { logger } from '@/lib/logger'
+import { ProductListQuerySchema } from '@/lib/validations/products'
+import { listProducts } from '@/lib/services/products'
+
+const PRICE_MAX_DEFAULT = 999999
 
 export async function GET(request: NextRequest) {
+  const startedAt = Date.now()
+
   try {
-    const { searchParams } = new URL(request.url);
-    
-    const page = Number(searchParams.get('page')) || 1;
-    const limit = Number(searchParams.get('limit')) || 20;
-    const category = searchParams.get('category');
-    const condition = searchParams.get('condition');
-    const search = searchParams.get('search');
-    const sort = searchParams.get('sort') || 'newest';
-    const priceMin = Number(searchParams.get('priceMin')) || 0;
-    const priceMax = Number(searchParams.get('priceMax')) || 999999;
+    const searchParams = request.nextUrl.searchParams
+    const rawParams = Object.fromEntries(searchParams.entries())
+    const parsedParams = ProductListQuerySchema.safeParse(rawParams)
 
-    // Build where clause
-    const where: any = {
-      status: 'ACTIVE'
-    };
-
-    if (category) {
-      where.category = {
-        contains: category
-      };
+    if (!parsedParams.success) {
+      logger.warn('Invalid product list query', parsedParams.error.flatten())
+      return ErrorResponses.validationError(
+        'Paramètres de recherche invalides',
+        parsedParams.error.flatten()
+      )
     }
 
-    if (condition) {
-      where.condition = condition;
-    }
+    const params = parsedParams.data
+    const result = await listProducts({
+      search: params.search,
+      category: params.category,
+      brand: params.brand,
+      condition: params.condition,
+      storeId: params.storeId,
+      status: 'ACTIVE',
+      priceMin: params.priceMin > 0 ? params.priceMin : undefined,
+      priceMax:
+        params.priceMax < PRICE_MAX_DEFAULT ? params.priceMax : undefined,
+      sort: params.sort,
+      page: params.page,
+      limit: params.limit
+    })
 
-    if (search) {
-      where.title = {
-        contains: search
-      };
-    }
+    logger.apiRequest(
+      'GET',
+      '/api/products',
+      Date.now() - startedAt,
+      200
+    )
 
-    if (priceMin > 0 || priceMax < 999999) {
-      where.price = {
-        gte: priceMin,
-        lte: priceMax
-      };
-    }
-
-    // Build orderBy clause
-    let orderBy: any = { createdAt: 'desc' };
-    switch (sort) {
-      case 'price_asc':
-        orderBy = { price: 'asc' };
-        break;
-      case 'price_desc':
-        orderBy = { price: 'desc' };
-        break;
-      case 'popular':
-        orderBy = { createdAt: 'desc' }; // Fallback since we don't have views in DB yet
-        break;
-      case 'rating':
-        orderBy = { createdAt: 'desc' }; // Fallback since we don't have ratings in DB yet
-        break;
-      default:
-        orderBy = { createdAt: 'desc' };
-    }
-
-    // Get products with pagination
-    const skip = (page - 1) * limit;
-    
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        include: {
-          store: {
-            select: {
-              name: true,
-              slug: true
-            }
-          }
-        },
-        orderBy,
-        skip,
-        take: limit
-      }),
-      prisma.product.count({ where })
-    ]);
-
-    // Convert BigInt IDs to strings for JSON serialization
-    const serializedProducts = products.map(product => ({
-      ...product,
-      id: product.id.toString(),
-      storeId: product.storeId.toString(),
-      price: product.price ? Number(product.price) : null,
-      compareAtPrice: product.compareAtPrice ? Number(product.compareAtPrice) : null
-    }));
-
-    const result = {
-      products: serializedProducts,
-      total,
-      page,
-      pages: Math.ceil(total / limit),
-      hasMore: page * limit < total
-    };
-
-    return NextResponse.json(result);
-  } catch (error: any) {
-    console.error('Error fetching products:', error);
-    return NextResponse.json(
-      { error: 'Erreur lors de la récupération des produits' },
-      { status: 500 }
-    );
+    return successResponse(result)
+  } catch (error) {
+    logger.error('Failed to fetch products list', error)
+    return ErrorResponses.serverError(
+      'Erreur lors de la récupération des produits',
+      error instanceof Error ? error.message : error
+    )
   }
 }

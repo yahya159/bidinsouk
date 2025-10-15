@@ -113,7 +113,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(results);
 
   } catch (error) {
-    console.error('Search error:', error);
+    const { logger } = await import('@/lib/logger');
+    logger.error('Search error', error);
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(

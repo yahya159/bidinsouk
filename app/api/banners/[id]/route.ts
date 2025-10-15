@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { updateBanner, deleteBanner } from '@/lib/services/banners'
-
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  const role = req.headers.get('x-user-role')
-  if (!userId) return null
-  return { userId: BigInt(userId), role }
-}
+import { requireRole } from '@/lib/auth/api-auth'
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: paramsPromise }: { params: Promise<{ id: string }> }
 ) {
+  const params = await paramsPromise
   try {
-    const user = getCurrentUser(req)
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, ['ADMIN'])
 
     const { content } = await req.json()
     if (!content) {
@@ -26,23 +18,45 @@ export async function PATCH(
     const banner = await updateBanner(BigInt(params.id), content)
     return NextResponse.json({ banner })
   } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    if (error.message === 'Forbidden') {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: paramsPromise }: { params: Promise<{ id: string }> }
 ) {
+  const params = await paramsPromise
   try {
-    const user = getCurrentUser(req)
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, ['ADMIN'])
 
     await deleteBanner(BigInt(params.id))
     return NextResponse.json({ success: true })
   } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    if (error.message === 'Forbidden') {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 }

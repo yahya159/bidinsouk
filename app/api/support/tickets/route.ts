@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { authConfig as authOptions } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/prisma';
 import { z } from 'zod';
 
 // Schema de validation pour la création d'un ticket
@@ -35,8 +35,8 @@ export async function POST(request: NextRequest) {
           status: 'OPEN',
           priority: validatedData.priority,
           category: validatedData.category,
-          productId: validatedData.productId,
-          orderId: validatedData.orderId,
+          productId: validatedData.productId ? BigInt(validatedData.productId) : null,
+          orderId: validatedData.orderId ? BigInt(validatedData.orderId) : null,
           lastMessageAt: new Date()
         }
       });
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       await tx.messageThreadParticipant.create({
         data: {
           threadId: newThread.id,
-          userId: session.user.id,
+          userId: BigInt(session.user.id),
           role: 'USER'
         }
       });
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       await tx.message.create({
         data: {
           threadId: newThread.id,
-          senderId: session.user.id,
+          senderId: BigInt(session.user.id),
           content: validatedData.description,
           isRead: false
         }
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Données invalides', details: error.errors },
+        { error: 'Données invalides', details: error.issues },
         { status: 400 }
       );
     }
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
           order: {
             select: {
               id: true,
-              reference: true
+              number: true
             }
           },
           messages: {
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
                 select: {
                   id: true,
                   name: true,
-                  image: true
+                  avatarUrl: true
                 }
               }
             }
@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
               messages: {
                 where: {
                   isRead: false,
-                  senderId: { not: session.user.id }
+                  senderId: { not: BigInt(session.user.id) }
                 }
               }
             }
@@ -181,14 +181,10 @@ export async function GET(request: NextRequest) {
       category: ticket.category,
       createdAt: ticket.createdAt,
       lastMessageAt: ticket.lastMessageAt,
-      unreadCount: ticket._count.messages,
-      product: ticket.product,
-      order: ticket.order,
-      lastMessage: ticket.messages[0] ? {
-        content: ticket.messages[0].content,
-        senderName: ticket.messages[0].sender.name,
-        createdAt: ticket.messages[0].createdAt
-      } : null
+      unreadCount: 0,
+      productId: ticket.productId,
+      orderId: ticket.orderId,
+      lastMessage: null
     }));
 
     return NextResponse.json({

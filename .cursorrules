@@ -1,0 +1,258 @@
+# Bidinsouk Project Coding Standards
+
+## Technology Stack
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript (strict mode)
+- **Database**: Prisma ORM with MySQL
+- **Real-time**: Pusher
+- **Auth**: NextAuth.js
+- **Styling**: Mantine UI
+
+## Core Principles
+
+### 1. Import Standards
+```typescript
+// ✅ ALWAYS use these imports:
+import { prisma } from '@/lib/db/prisma';
+import { authConfig as authOptions } from '@/lib/auth/config';
+import { logger } from '@/lib/logger';
+import { errorResponse, successResponse, ErrorResponses } from '@/lib/api/responses';
+
+// ❌ NEVER use:
+import { prisma } from '@/lib/prisma'; // Old path
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'; // Wrong import
+```
+
+### 2. Error Handling
+```typescript
+// ✅ ALWAYS use logger
+try {
+  // code
+} catch (error) {
+  logger.error('Descriptive message', error);
+  return ErrorResponses.serverError('User-friendly message', error);
+}
+
+// ❌ NEVER use console.error in production code
+console.error('Error:', error); // BAD
+```
+
+### 3. API Response Standards
+```typescript
+// ✅ Use standardized responses
+import { ErrorResponses, successResponse } from '@/lib/api/responses';
+
+// Success
+return successResponse({ data: results }, 200);
+
+// Errors
+return ErrorResponses.unauthorized();
+return ErrorResponses.notFound('Auction');
+return ErrorResponses.validationError('Invalid data', details);
+```
+
+### 4. Database Queries
+```typescript
+// ✅ ALWAYS use includes to prevent N+1 queries
+const auctions = await prisma.auction.findMany({
+  where: { status: 'ACTIVE' },
+  include: {
+    product: true,
+    store: true,
+    bids: { take: 1, orderBy: { createdAt: 'desc' } },
+    _count: { select: { bids: true } }
+  }
+});
+
+// ✅ ALWAYS use aggregations for counting/summing
+const stats = await prisma.order.aggregate({
+  _sum: { total: true },
+  _count: true,
+  where: { status: 'CONFIRMED' }
+});
+
+// ❌ NEVER fetch all records to count in JS
+const orders = await prisma.order.findMany({}); // BAD
+const count = orders.length; // BAD
+```
+
+### 5. Authentication Guards
+```typescript
+// ✅ ALWAYS check authentication
+const session = await getServerSession(authOptions);
+if (!session?.user) {
+  return ErrorResponses.unauthorized();
+}
+
+// ✅ ALWAYS check roles for admin routes
+const roles = session?.user?.roles as string[] | undefined;
+if (!roles?.includes('ADMIN')) {
+  return ErrorResponses.forbidden();
+}
+```
+
+### 6. Real-time Features
+```typescript
+// ✅ ALWAYS check if Pusher is configured
+if (!process.env.NEXT_PUBLIC_PUSHER_KEY) {
+  console.warn('⚠️ Pusher not configured');
+  return;
+}
+
+const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
+  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu'
+});
+```
+
+### 7. Type Safety
+```typescript
+// ✅ ALWAYS use proper types
+interface AuctionResponse {
+  id: string;
+  title: string;
+  currentBid: number;
+  // ...
+}
+
+// ❌ NEVER use `any` unless absolutely necessary
+const data: any = await fetch(); // BAD
+
+// ✅ Use `unknown` and type guards instead
+const data: unknown = await fetch();
+if (isValidData(data)) {
+  // use data
+}
+```
+
+### 8. Code Organization
+```
+lib/
+  ├── api/         # API utilities (responses, middleware)
+  ├── auth/        # Authentication config
+  ├── db/          # Database client (Prisma)
+  ├── services/    # Business logic
+  ├── validations/ # Zod schemas
+  └── logger.ts    # Centralized logging
+```
+
+## File-Specific Rules
+
+### API Routes (`app/api/**/*.ts`)
+```typescript
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authConfig as authOptions } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/prisma';
+import { logger } from '@/lib/logger';
+import { ErrorResponses, successResponse } from '@/lib/api/responses';
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return ErrorResponses.unauthorized();
+    }
+    
+    // Business logic here
+    
+    return successResponse({ data: results });
+  } catch (error) {
+    logger.error('Route error', error);
+    return ErrorResponses.serverError();
+  }
+}
+```
+
+### Components (`app/**/*.tsx`, `components/**/*.tsx`)
+```typescript
+'use client'; // Only when needed (interactivity, hooks, etc.)
+
+import { useState, useEffect } from 'react';
+
+export function Component() {
+  // Component logic
+}
+```
+
+## Performance Guidelines
+
+1. **Database Indexes**: All frequently queried columns must have indexes
+2. **Query Optimization**: Always use `include` for relations, avoid N+1 queries
+3. **Aggregations**: Use database-level aggregations, not JS `reduce`
+4. **Pagination**: Always paginate large datasets
+5. **Real-time**: Use Pusher for live updates, fallback to polling if needed
+
+## Security Guidelines
+
+1. **Authentication**: All protected routes must check session
+2. **Authorization**: Check user roles before granting access
+3. **Input Validation**: Use Zod schemas for all user inputs
+4. **SQL Injection**: Always use Prisma (never raw SQL without params)
+5. **XSS Protection**: Sanitize user-generated content
+
+## Testing Checklist
+
+Before committing:
+- [ ] No `console.error` in production code (use `logger`)
+- [ ] All imports use correct paths
+- [ ] API routes return standardized responses
+- [ ] Database queries are optimized (no N+1)
+- [ ] Authentication guards in place
+- [ ] TypeScript has no errors
+- [ ] Proper error handling with logger
+
+## Environment Variables
+
+Required:
+- `DATABASE_URL` - MySQL connection string
+- `NEXTAUTH_URL` - Application URL
+- `NEXTAUTH_SECRET` - Auth secret key
+- `PUSHER_*` - Pusher credentials for real-time
+
+Optional:
+- `RESEND_API_KEY` - Email notifications
+- `UPLOADTHING_SECRET` - File uploads
+
+## Git Commit Messages
+
+Format: `type(scope): message`
+
+Types:
+- `feat` - New feature
+- `fix` - Bug fix
+- `perf` - Performance improvement
+- `refactor` - Code refactoring
+- `chore` - Maintenance tasks
+- `docs` - Documentation
+
+Examples:
+```
+feat(auctions): add real-time bidding
+fix(auth): consolidate auth configuration
+perf(api): optimize N+1 queries in auction listing
+refactor(logging): replace console.error with logger
+```
+
+## Common Mistakes to Avoid
+
+❌ Using old Prisma import path  
+❌ Using console.error instead of logger  
+❌ Fetching all records to count in JavaScript  
+❌ Not checking authentication/authorization  
+❌ Using `any` type  
+❌ Creating N+1 query problems  
+❌ Not handling errors properly  
+❌ Importing authOptions from route instead of config  
+
+## Quick Reference
+
+**Database Client**: `@/lib/db/prisma`  
+**Auth Config**: `@/lib/auth/config`  
+**Logger**: `@/lib/logger`  
+**API Responses**: `@/lib/api/responses`  
+
+---
+
+**Last Updated**: October 15, 2025  
+**Version**: 1.0 (Post-Systematic Fix)
+

@@ -1,0 +1,241 @@
+/**
+ * OPTIMIZED PRISMA CLIENT WITH CONNECTION POOLING
+ * 
+ * Features:
+ * - Optimized connection pool settings
+ * - Query logging for slow queries
+ * - Connection timeout handling
+ * - Automatic reconnection
+ * - Memory leak prevention
+ */
+
+import { PrismaClient } from '@prisma/client';
+
+// ============================================================================
+// GLOBAL PRISMA CLIENT (Singleton Pattern)
+// ============================================================================
+
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
+
+// ============================================================================
+// CONNECTION POOL CONFIGURATION
+// ============================================================================
+
+/**
+ * Calculate optimal pool size based on environment
+ * 
+ * Formula: num_physical_cpus * 2 + effective_spindle_count
+ * For serverless: Lower pool size to prevent exhaustion
+ * 
+ * Sources:
+ * - https://wiki.postgresql.org/wiki/Number_Of_Database_Connections
+ * - https://www.prisma.io/docs/guides/performance-and-optimization/connection-management
+ */
+function getOptimalPoolSize(): number {
+  const environment = process.env.NODE_ENV;
+  const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  
+  if (isServerless) {
+    // Serverless: Lower pool size per function
+    return 5;
+  }
+  
+  if (environment === 'production') {
+    // Production: Moderate pool size
+    return 20;
+  }
+  
+  // Development: Small pool size
+  return 10;
+}
+
+/**
+ * Build database URL with connection pool parameters
+ */
+function buildDatabaseUrl(): string {
+  const baseUrl = process.env.DATABASE_URL;
+  
+  if (!baseUrl) {
+    throw new Error('DATABASE_URL environment variable is not set');
+  }
+  
+  // Parse existing URL
+  const url = new URL(baseUrl);
+  
+  // Add/update connection pool parameters
+  const poolSize = getOptimalPoolSize();
+  url.searchParams.set('connection_limit', poolSize.toString());
+  url.searchParams.set('pool_timeout', '20'); // 20 seconds
+  url.searchParams.set('connect_timeout', '10'); // 10 seconds
+  
+  return url.toString();
+}
+
+// ============================================================================
+// PRISMA CLIENT INITIALIZATION
+// ============================================================================
+
+export const prismaOptimized =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    datasources: {
+      db: {
+        url: buildDatabaseUrl()
+      }
+    },
+    
+    // Log configuration
+    log: process.env.NODE_ENV === 'development' 
+      ? ['query', 'error', 'warn']
+      : ['error'],
+    
+    // Error formatting
+    errorFormat: process.env.NODE_ENV === 'development' 
+      ? 'pretty' 
+      : 'minimal',
+  });
+
+// ============================================================================
+// QUERY LOGGING MIDDLEWARE
+// ============================================================================
+
+if (process.env.NODE_ENV === 'development') {
+  prismaOptimized.$use(async (params, next) => {
+    const before = Date.now();
+    const result = await next(params);
+    const after = Date.now();
+    const duration = after - before;
+    
+    // Log slow queries
+    if (duration > 1000) {
+      console.warn(`🐌 Slow Query: ${params.model}.${params.action} took ${duration}ms`);
+    } else if (duration > 100) {
+      console.log(`⚠️  Query: ${params.model}.${params.action} took ${duration}ms`);
+    }
+    
+    return result;
+  });
+}
+
+// ============================================================================
+// CONNECTION MANAGEMENT
+// ============================================================================
+
+/**
+ * Gracefully disconnect on app shutdown
+ */
+async function disconnectPrisma() {
+  await prismaOptimized.$disconnect();
+  console.log('[DB] Prisma disconnected');
+}
+
+// Register shutdown handlers
+if (process.env.NODE_ENV !== 'test') {
+  process.on('beforeExit', disconnectPrisma);
+  process.on('SIGINT', disconnectPrisma);
+  process.on('SIGTERM', disconnectPrisma);
+}
+
+// ============================================================================
+// HOT MODULE REPLACEMENT (Development)
+// ============================================================================
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prismaOptimized;
+}
+
+// ============================================================================
+// HEALTH CHECK
+// ============================================================================
+
+/**
+ * Check database connection health
+ */
+export async function checkDatabaseHealth(): Promise<boolean> {
+  try {
+    await prismaOptimized.$queryRaw`SELECT 1`;
+    return true;
+  } catch (error) {
+    console.error('[DB] Health check failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Get connection pool status
+ */
+export async function getPoolStatus() {
+  try {
+    const result = await prismaOptimized.$queryRaw<any[]>`
+      SHOW STATUS WHERE Variable_name IN (
+        'Threads_connected',
+        'Max_used_connections', 
+        'Aborted_connects'
+      )
+    `;
+    
+    const status: Record<string, number> = {};
+    result.forEach((row: any) => {
+      status[row.Variable_name] = parseInt(row.Value);
+    });
+    
+    return {
+      connected: status.Threads_connected || 0,
+      maxUsed: status.Max_used_connections || 0,
+      aborted: status.Aborted_connects || 0,
+      poolSize: getOptimalPoolSize()
+    };
+  } catch (error) {
+    console.error('[DB] Error getting pool status:', error);
+    return null;
+  }
+}
+
+// ============================================================================
+// TRANSACTION HELPERS
+// ============================================================================
+
+/**
+ * Execute transaction with retry logic
+ */
+export async function executeWithRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Only retry on connection errors
+      const isConnectionError = 
+        error.code === 'P2024' || // Timed out fetching
+        error.code === 'P2034' || // Transaction failed
+        error.message?.includes('Connection');
+      
+      if (!isConnectionError || attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Exponential backoff
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      console.warn(`[DB] Retry attempt ${attempt}/${maxRetries} after ${delay}ms`);
+    }
+  }
+  
+  throw lastError;
+}
+
+// ============================================================================
+// EXPORT
+// ============================================================================
+
+export { prismaOptimized as prisma };
+
+export default prismaOptimized;
+

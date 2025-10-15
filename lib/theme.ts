@@ -4,9 +4,6 @@ export const theme = createTheme({
   /** Primary color - used for primary buttons, links, etc */
   primaryColor: 'blue',
   
-  /** Default color scheme */
-  defaultColorScheme: 'light',
-  
   /** Font family */
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   

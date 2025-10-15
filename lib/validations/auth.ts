@@ -29,10 +29,12 @@ export const ResetPasswordDto = z.object({
 })
 
 export const UpdateProfileDto = z.object({
-  name: z.string().min(2).optional(),
-  phone: z.string().optional(),
-  avatarUrl: z.string().url().optional(),
-  locale: z.enum(['fr', 'ar']).optional()
+  name: z.string().min(2, 'Nom requis (min 2 caractères)').optional(),
+  phone: z.string().max(32, 'Numéro de téléphone trop long (max 32 caractères)').optional(),
+  avatarUrl: z.string().url('URL invalide').max(512, 'URL trop longue (max 512 caractères)').optional(),
+  locale: z.enum(['fr', 'ar'], { 
+    message: 'Langue invalide'
+  }).optional()
 })
 
 export const AddressDto = z.object({

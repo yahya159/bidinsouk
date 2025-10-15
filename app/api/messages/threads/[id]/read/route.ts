@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { authConfig as authOptions } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/prisma';
 
 // PUT - Marquer tous les messages d'un thread comme lus
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params: paramsPromise }: { params: Promise<{ id: string }> }
 ) {
+  const params = await paramsPromise
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -17,12 +18,13 @@ export async function PUT(
     const threadId = params.id;
 
     // Vérifier que l'utilisateur est participant du thread
+    const userId = BigInt(session.user.id);
     const thread = await prisma.messageThread.findFirst({
       where: {
         id: threadId,
         participants: {
           some: {
-            userId: session.user.id
+            userId
           }
         }
       }
@@ -39,7 +41,7 @@ export async function PUT(
     const updatedMessages = await prisma.message.updateMany({
       where: {
         threadId,
-        senderId: { not: session.user.id }, // Ne pas marquer ses propres messages
+        senderId: { not: userId }, // Ne pas marquer ses propres messages
         isRead: false
       },
       data: {

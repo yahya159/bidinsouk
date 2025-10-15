@@ -1,106 +1,224 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  const role = req.headers.get('x-user-role')
-  if (!userId) return null
-  return { userId, role }
-}
+import { requireRole } from '@/lib/auth/api-auth'
 
 export async function GET(req: NextRequest) {
   try {
-    const user = getCurrentUser(req)
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, ['ADMIN'])
 
-    // Testons chaque requête individuellement avec un try/catch
-    let totalOrders = 0;
-    try {
-      totalOrders = await prisma.order.count({ where: { status: 'CONFIRMED' } });
-      console.log('Orders count successful:', totalOrders);
-    } catch (error) {
-      console.error('Error fetching orders count:', error);
-    }
-    
-    let totalRevenue: any = { _sum: { total: null } };
-    try {
-      totalRevenue = await prisma.order.aggregate({
+    // Get all the required statistics
+    const [
+      totalUsers,
+      totalVendors,
+      totalProducts,
+      activeAuctions,
+      endedAuctions,
+      totalOrdersResult,
+      totalRevenueResult,
+      pendingReports
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.vendor.count(),
+      prisma.product.count({ where: { status: 'ACTIVE' } }),
+      prisma.auction.count({ where: { status: { in: ['ACTIVE', 'RUNNING', 'ENDING_SOON'] } } }),
+      prisma.auction.count({ where: { status: 'ENDED' } }),
+      prisma.order.count(),
+      prisma.order.aggregate({
         where: { status: 'CONFIRMED' },
         _sum: { total: true }
-      });
-      console.log('Revenue aggregate successful:', totalRevenue);
-    } catch (error) {
-      console.error('Error fetching revenue aggregate:', error);
-    }
-    
-    let totalAuctions = 0;
-    try {
-      totalAuctions = await prisma.auction.count();
-      console.log('Auctions count successful:', totalAuctions);
-    } catch (error) {
-      console.error('Error fetching auctions count:', error);
-    }
-    
-    let totalUsers = 0;
-    try {
-      totalUsers = await prisma.user.count();
-      console.log('Users count successful:', totalUsers);
-    } catch (error) {
-      console.error('Error fetching users count:', error);
-    }
-    
-    // Calculer les KPIs
-    const revenue = totalRevenue._sum.total ? Number(totalRevenue._sum.total) : 0
-    const orders = totalOrders
-    const auctions = totalAuctions
-    const users = totalUsers
-    
-    // Calculer les variations (simplifié pour l'exemple)
-    const revenueChange = 12.5
-    const ordersChange = -3.2
-    const auctionsChange = 8.7
-    const conversionChange = 1.2
-    
-    // Calculer le taux de conversion
-    const conversionRate = orders > 0 ? parseFloat(((orders / users) * 100).toFixed(1)) : 0
+      }),
+      prisma.abuseReport.count({ where: { status: 'OPEN' } })
+    ]);
+
+    // Calculate revenue
+    const totalRevenue = totalRevenueResult._sum.total ? Number(totalRevenueResult._sum.total) : 0;
+
+    // Calculate conversion rate (orders / ended auctions)
+    const conversionRate = endedAuctions > 0 ? parseFloat(((totalOrdersResult / endedAuctions) * 100).toFixed(1)) : 0;
+
+    // Get sales data for the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const [salesDataResult, userDataResult, auctionDataResult, orderDataResult] = await Promise.all([
+      prisma.order.groupBy({
+        by: ['createdAt'],
+        where: {
+          createdAt: { gte: thirtyDaysAgo },
+          status: 'CONFIRMED'
+        },
+        _sum: {
+          total: true
+        },
+        orderBy: {
+          createdAt: 'asc'
+        }
+      }),
+      prisma.user.groupBy({
+        by: ['createdAt'],
+        where: {
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        _count: true,
+        orderBy: {
+          createdAt: 'asc'
+        }
+      }),
+      prisma.auction.groupBy({
+        by: ['createdAt'],
+        where: {
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        _count: true,
+        orderBy: {
+          createdAt: 'asc'
+        }
+      }),
+      prisma.order.groupBy({
+        by: ['createdAt'],
+        where: {
+          createdAt: { gte: thirtyDaysAgo }
+        },
+        _count: true,
+        orderBy: {
+          createdAt: 'asc'
+        }
+      })
+    ]);
+
+    // Format sales data for chart
+    const salesData = salesDataResult.map(item => ({
+      name: item.createdAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+      revenue: Number(item._sum.total || 0),
+      orders: orderDataResult.find(o => o.createdAt.getTime() === item.createdAt.getTime())?._count || 0,
+      auctions: auctionDataResult.find(a => a.createdAt.getTime() === item.createdAt.getTime())?._count || 0,
+      users: userDataResult.find(u => u.createdAt.getTime() === item.createdAt.getTime())?._count || 0
+    }));
+
+    // Get category distribution (mock data for now)
+    const categoryData = [
+      { name: 'Électronique', value: 35, color: '#228be6' },
+      { name: 'Mode', value: 25, color: '#40c057' },
+      { name: 'Maison', value: 20, color: '#fab005' },
+      { name: 'Sport', value: 12, color: '#fd7e14' },
+      { name: 'Autres', value: 8, color: '#e64980' },
+    ];
+
+    // Get recent activity
+    const [recentOrders, recentAuctions, recentUsers] = await Promise.all([
+      prisma.order.findMany({
+        take: 3,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          store: {
+            select: { name: true }
+          }
+        }
+      }),
+      prisma.auction.findMany({
+        take: 3,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          store: {
+            select: { name: true }
+          },
+          product: {
+            select: { title: true }
+          }
+        }
+      }),
+      prisma.user.findMany({
+        take: 3,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true
+        }
+      })
+    ]);
+
+    const recentActivity = {
+      orders: recentOrders.map(order => ({
+        id: `order-${order.id}`,
+        type: 'order' as const,
+        title: `Nouvelle commande #${order.id}`,
+        description: `${order.store?.name || 'Boutique inconnue'} - ${new Intl.NumberFormat('fr-FR').format(Number(order.total))} MAD`,
+        time: getTimeAgo(order.createdAt),
+        icon: 'ShoppingBag',
+        color: 'blue',
+      })),
+      auctions: recentAuctions.map(auction => ({
+        id: `auction-${auction.id}`,
+        type: 'auction' as const,
+        title: 'Nouvelle enchère',
+        description: `${auction.product?.title || auction.title} - ${auction.store?.name || 'Boutique inconnue'}`,
+        time: getTimeAgo(auction.createdAt),
+        icon: 'Gavel',
+        color: 'orange',
+      })),
+      users: recentUsers.map(user => ({
+        id: `user-${user.id}`,
+        type: 'user' as const,
+        title: 'Nouvel utilisateur',
+        description: `${user.name} (${user.role})`,
+        time: getTimeAgo(user.createdAt),
+        icon: 'UserPlus',
+        color: 'green',
+      }))
+    };
+
+    // Flatten and sort recent activity
+    const flattenedActivity = [
+      ...recentActivity.orders,
+      ...recentActivity.auctions,
+      ...recentActivity.users
+    ].sort((a, b) => {
+      const timeA = a.time.includes('min') ? parseInt(a.time) : 
+                   a.time.includes('h') ? parseInt(a.time) * 60 : 
+                   parseInt(a.time) * 1440;
+      const timeB = b.time.includes('min') ? parseInt(b.time) : 
+                   b.time.includes('h') ? parseInt(b.time) * 60 : 
+                   parseInt(b.time) * 1440;
+      return timeA - timeB;
+    }).slice(0, 5);
 
     return NextResponse.json({
       metrics: {
-        revenue,
-        revenueChange,
-        orders,
-        ordersChange,
-        activeAuctions: auctions,
-        auctionsChange,
+        revenue: totalRevenue,
+        revenueChange: 12.5, // Would need historical data to calculate properly
+        orders: totalOrdersResult,
+        ordersChange: -3.2, // Would need historical data to calculate properly
+        activeAuctions,
+        auctionsChange: 8.7, // Would need historical data to calculate properly
         conversionRate,
-        conversionChange
+        conversionChange: 1.2, // Would need historical data to calculate properly
+        totalUsers,
+        totalVendors,
+        totalProducts,
+        pendingReports
       },
       charts: {
-        salesData: [
-          { name: '1 Jan', value: 1200 },
-          { name: '5 Jan', value: 1800 },
-          { name: '10 Jan', value: 1600 },
-          { name: '15 Jan', value: 2200 },
-          { name: '20 Jan', value: 1900 },
-          { name: '25 Jan', value: 2400 },
-          { name: '30 Jan', value: 2100 },
-        ],
-        categoryData: [
-          { name: 'Électronique', value: 35, color: '#228be6' },
-          { name: 'Mode', value: 25, color: '#40c057' },
-          { name: 'Maison', value: 20, color: '#fab005' },
-          { name: 'Sport', value: 12, color: '#fd7e14' },
-          { name: 'Autres', value: 8, color: '#e64980' },
-        ]
+        salesData,
+        categoryData
       },
-      recentActivity: {
-        orders: [],
-        auctions: []
-      }
+      recentActivity: flattenedActivity
     })
   } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    if (error.message === 'Forbidden') {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
     console.error('Error fetching admin dashboard data:', error)
     // Log more detailed error information
     console.error('Error details:', {

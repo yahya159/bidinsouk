@@ -1,191 +1,444 @@
+/**
+ * AUCTION CARD COMPONENT
+ * 
+ * Features:
+ * - Real-time countdown timer
+ * - Reserve price indicator (hidden amount)
+ * - Quick bid functionality
+ * - Auto-extend indicator
+ * - Buy Now button
+ * - Bid count and watchers
+ * - Status badges
+ */
+
 'use client';
 
-import {
-  Card,
-  Image,
-  Text,
-  Badge,
-  Group,
-  Avatar,
-  Box,
-  Stack,
-  ActionIcon,
-} from '@mantine/core';
-import { Heart, Clock3 } from 'lucide-react';
-import { badgeIcons, uiIcons } from '@/lib/iconMap';
-import { AuctionData } from '@/lib/homeData';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { Card, Image, Stack, Text, Group, Badge, Button, ActionIcon, Progress, Tooltip } from '@mantine/core';
+import { 
+  Heart, 
+  Gavel, 
+  Clock, 
+  TrendingUp, 
+  Eye, 
+  Users, 
+  Zap,
+  AlertCircle,
+  CheckCircle
+} from 'lucide-react';
+import Link from 'next/link';
+import { memo, useState, useEffect } from 'react';
 
-interface AuctionCardProps {
-  auction: AuctionData;
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export interface AuctionCardProps {
+  id: string;
+  title: string;
+  imageUrl: string;
+  currentBid: number;
+  startPrice: number;
+  reservePrice?: number | null;
+  reserveMet: boolean;
+  buyNowPrice?: number | null;
+  minIncrement: number;
+  endAt: string; // ISO string
+  status: 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'RUNNING' | 'ENDING_SOON' | 'ENDED' | 'CANCELLED';
+  autoExtend: boolean;
+  extensionCount?: number;
+  category?: string;
+  bidsCount: number;
+  watchersCount: number;
+  seller?: {
+    name: string;
+  };
+  isWatching?: boolean;
+  onToggleWatch?: (e: React.MouseEvent) => void;
+  onQuickBid?: (e: React.MouseEvent) => void;
+  onBuyNow?: (e: React.MouseEvent) => void;
 }
 
-export function AuctionCard({ auction }: AuctionCardProps) {
-  const router = useRouter();
-  const [isLiked, setIsLiked] = useState(false);
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
-  const handleCardClick = () => {
-    router.push(`/auction/${auction.id}`);
-  };
+export const AuctionCard = memo(function AuctionCard({
+  id,
+  title,
+  imageUrl,
+  currentBid,
+  startPrice,
+  reservePrice,
+  reserveMet,
+  buyNowPrice,
+  minIncrement,
+  endAt,
+  status,
+  autoExtend,
+  extensionCount = 0,
+  category,
+  bidsCount,
+  watchersCount,
+  seller,
+  isWatching = false,
+  onToggleWatch,
+  onQuickBid,
+  onBuyNow
+}: AuctionCardProps) {
+  
+  // State for countdown
+  const [timeRemaining, setTimeRemaining] = useState<string>('');
+  const [timeProgress, setTimeProgress] = useState<number>(0);
+  const [isEnded, setIsEnded] = useState(status === 'ENDED');
 
-  const handleLikeClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsLiked(!isLiked);
-  };
+  // Countdown timer
+  useEffect(() => {
+    const calculateTimeRemaining = () => {
+      const now = new Date().getTime();
+      const end = new Date(endAt).getTime();
+      const diff = end - now;
 
-  const getBadgeColor = (badge: string) => {
-    switch (badge) {
-      case 'hot': return 'red';
-      case 'live': return 'green';
-      case 'trending': return 'blue';
-      case 'verified': return 'teal';
-      default: return 'gray';
+      if (diff <= 0) {
+        setTimeRemaining('Ended');
+        setIsEnded(true);
+        setTimeProgress(100);
+        return;
+      }
+
+      // Calculate time units
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      // Format display
+      if (days > 0) {
+        setTimeRemaining(`${days}d ${hours}h`);
+      } else if (hours > 0) {
+        setTimeRemaining(`${hours}h ${minutes}m`);
+      } else if (minutes > 0) {
+        setTimeRemaining(`${minutes}m ${seconds}s`);
+      } else {
+        setTimeRemaining(`${seconds}s`);
+      }
+
+      // Calculate progress (assume 7 days max for progress bar)
+      const totalDuration = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
+      const elapsed = totalDuration - diff;
+      setTimeProgress(Math.min(100, (elapsed / totalDuration) * 100));
+    };
+
+    calculateTimeRemaining();
+    const interval = setInterval(calculateTimeRemaining, 1000);
+
+    return () => clearInterval(interval);
+  }, [endAt]);
+
+  // Determine status color and text
+  const getStatusInfo = () => {
+    switch (status) {
+      case 'ENDING_SOON':
+        return { color: 'red', text: 'Ending Soon', pulse: true };
+      case 'ACTIVE':
+      case 'RUNNING':
+        return { color: 'green', text: 'Live', pulse: false };
+      case 'ENDED':
+        return { color: 'gray', text: 'Ended', pulse: false };
+      case 'SCHEDULED':
+        return { color: 'blue', text: 'Upcoming', pulse: false };
+      case 'CANCELLED':
+        return { color: 'red', text: 'Cancelled', pulse: false };
+      default:
+        return { color: 'gray', text: status, pulse: false };
     }
   };
 
-  const getBadgeIcon = (badge: string) => {
-    const IconComponent = badgeIcons[badge as keyof typeof badgeIcons];
-    return IconComponent ? <IconComponent size={12} /> : null;
-  };
-
-  const StarIcon = uiIcons.star;
+  const statusInfo = getStatusInfo();
+  const isActive = ['ACTIVE', 'RUNNING', 'ENDING_SOON'].includes(status);
+  const nextBid = currentBid > 0 ? currentBid + minIncrement : startPrice;
 
   return (
     <Card
-      shadow="xs"
-      padding="md"
-      radius="lg"
+      component={Link}
+      href={`/auction/${id}`}
+      shadow="sm"
+      padding="lg"
+      radius="md"
       withBorder
-      style={{
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
+      style={{ 
+        cursor: 'pointer', 
         height: '100%',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-        },
+        display: 'flex',
+        flexDirection: 'column',
+        transition: 'transform 0.2s, box-shadow 0.2s',
       }}
-      onClick={handleCardClick}
+      className="hover:shadow-lg"
     >
+      {/* Image Section */}
       <Card.Section style={{ position: 'relative' }}>
         <Image
-          src={auction.image}
+          src={imageUrl}
+          alt={title}
           height={200}
-          alt={auction.title}
-          style={{
-            transition: 'transform 0.2s ease',
-            '&:hover': {
-              transform: 'scale(1.02)',
-            },
-          }}
+          fit="cover"
+          fallbackSrc="https://placehold.co/400x400?text=Auction+Item"
         />
         
-        {/* Badges */}
-        <Box style={{ position: 'absolute', top: 12, left: 12 }}>
-          <Stack gap={4}>
-            {auction.badges.map((badge) => (
-              <Badge
-                key={badge}
-                color={getBadgeColor(badge)}
-                variant="filled"
-                size="sm"
-                leftSection={getBadgeIcon(badge)}
-                style={{
-                  textTransform: 'uppercase',
-                  fontSize: '0.7rem',
-                  fontWeight: 600,
-                }}
-              >
-                {badge === 'hot' ? 'HOT' : 
-                 badge === 'live' ? 'LIVE' : 
-                 badge === 'trending' ? 'TRENDING' : 
-                 badge === 'verified' ? 'VÉRIFIÉE' : badge}
-              </Badge>
-            ))}
-          </Stack>
-        </Box>
-
-        {/* Like Button */}
-        <ActionIcon
-          variant="filled"
-          color={isLiked ? 'red' : 'gray'}
-          size="md"
-          radius="xl"
-          onClick={handleLikeClick}
-          style={{
-            position: 'absolute',
-            top: 12,
-            right: 12,
-            backgroundColor: isLiked ? '#fa5252' : 'rgba(255,255,255,0.9)',
-            color: isLiked ? 'white' : '#666',
-            '&:hover': {
-              backgroundColor: isLiked ? '#e03131' : 'white',
-            },
+        {/* Status Badge */}
+        <Group 
+          gap="xs" 
+          style={{ 
+            position: 'absolute', 
+            top: 8, 
+            left: 8, 
+            right: 8 
           }}
+          justify="space-between"
         >
-          <Heart size={16} fill={isLiked ? 'currentColor' : 'none'} />
+          <Badge 
+            color={statusInfo.color} 
+            size="sm" 
+            variant="filled"
+            style={{
+              animation: statusInfo.pulse ? 'pulse 2s infinite' : 'none'
+            }}
+          >
+            {statusInfo.text}
+          </Badge>
+          
+          {autoExtend && isActive && (
+            <Tooltip label={`Auto-extends by 5 min (${extensionCount} extensions so far)`}>
+              <Badge color="orange" size="sm" variant="light">
+                <Zap size={12} style={{ marginRight: 4 }} />
+                Anti-Snipe
+              </Badge>
+            </Tooltip>
+          )}
+        </Group>
+
+        {/* Watch Button */}
+        <ActionIcon
+          style={{ 
+            position: 'absolute', 
+            bottom: 8, 
+            right: 8,
+            backgroundColor: 'rgba(255, 255, 255, 0.9)'
+          }}
+          variant={isWatching ? 'filled' : 'light'}
+          color="red"
+          size="md"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleWatch?.(e);
+          }}
+          aria-label="Watch auction"
+        >
+          <Heart 
+            size={16} 
+            fill={isWatching ? 'currentColor' : 'none'}
+          />
         </ActionIcon>
+
+        {/* Buy Now Badge */}
+        {buyNowPrice && isActive && (
+          <Badge
+            color="violet"
+            size="sm"
+            variant="filled"
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8
+            }}
+          >
+            Buy Now Available
+          </Badge>
+        )}
       </Card.Section>
 
-      <Stack gap="sm" mt="md">
-        {/* Title */}
-        <Text
-          fw={600}
-          size="sm"
-          style={{
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            lineHeight: 1.3,
-            minHeight: '2.6em',
-          }}
-        >
-          {auction.title}
-        </Text>
+      {/* Content */}
+      <Stack gap="sm" mt="md" style={{ flex: 1 }} justify="space-between">
+        <div>
+          {/* Category */}
+          {category && (
+            <Text size="xs" c="dimmed" mb="xs">
+              {category}
+            </Text>
+          )}
 
-        {/* Seller */}
-        <Group gap="xs">
-          <Avatar src={auction.seller.avatar} size="xs" radius="xl" />
-          <Text size="xs" c="dimmed">
-            {auction.seller.name}
+          {/* Title */}
+          <Text fw={500} size="sm" lineClamp={2} mb="xs">
+            {title}
           </Text>
-          <Group gap={2}>
-            <StarIcon size={12} color="#ffd43b" fill="#ffd43b" />
+
+          {/* Current Bid */}
+          <Group gap="xs" align="baseline" mb="xs">
             <Text size="xs" c="dimmed">
-              {auction.seller.rating}
+              Current Bid:
+            </Text>
+            <Text fw={700} size="lg" c="blue">
+              {formatPrice(currentBid > 0 ? currentBid : startPrice)} د.م
             </Text>
           </Group>
-        </Group>
 
-        {/* Price and Bids */}
-        <Group justify="space-between" align="center">
-          <Box>
-            <Text size="lg" fw={700} c="blue">
-              {new Intl.NumberFormat('fr-FR').format(auction.currentPrice)} MAD
+          {/* Reserve Price Indicator */}
+          {reservePrice && !isEnded && (
+            <Group gap="xs" mb="xs">
+              {reserveMet ? (
+                <Tooltip label="Reserve price has been met">
+                  <Badge 
+                    color="green" 
+                    size="sm" 
+                    variant="light"
+                    leftSection={<CheckCircle size={12} />}
+                  >
+                    Reserve Met
+                  </Badge>
+                </Tooltip>
+              ) : (
+                <Tooltip label="Reserve price not yet met">
+                  <Badge 
+                    color="orange" 
+                    size="sm" 
+                    variant="light"
+                    leftSection={<AlertCircle size={12} />}
+                  >
+                    Reserve Not Met
+                  </Badge>
+                </Tooltip>
+              )}
+            </Group>
+          )}
+
+          {/* Buy Now Price */}
+          {buyNowPrice && isActive && (
+            <Group gap="xs" align="baseline" mb="xs">
+              <Text size="xs" c="dimmed">
+                Buy Now:
+              </Text>
+              <Text fw={600} size="md" c="violet">
+                {formatPrice(buyNowPrice)} د.م
+              </Text>
+            </Group>
+          )}
+
+          {/* Countdown */}
+          <Group gap="xs" mb="xs">
+            <Clock size={14} style={{ color: isEnded ? '#aaa' : '#228be6' }} />
+            <Text size="sm" fw={500} c={isEnded ? 'dimmed' : 'blue'}>
+              {timeRemaining}
             </Text>
+          </Group>
+
+          {/* Progress Bar */}
+          {!isEnded && (
+            <Progress 
+              value={timeProgress} 
+              size="xs" 
+              color={status === 'ENDING_SOON' ? 'red' : 'blue'}
+              mb="xs"
+            />
+          )}
+
+          {/* Stats */}
+          <Group gap="md" mb="xs">
+            <Group gap={4}>
+              <Gavel size={14} style={{ color: '#868e96' }} />
+              <Text size="xs" c="dimmed">
+                {bidsCount} bids
+              </Text>
+            </Group>
+            <Group gap={4}>
+              <Eye size={14} style={{ color: '#868e96' }} />
+              <Text size="xs" c="dimmed">
+                {watchersCount} watching
+              </Text>
+            </Group>
+          </Group>
+
+          {/* Seller */}
+          {seller && (
             <Text size="xs" c="dimmed">
-              {auction.bidCount} enchères
+              Seller: {seller.name}
             </Text>
-          </Box>
-        </Group>
+          )}
+        </div>
 
-        {/* Time Left */}
-        <Group justify="center" gap="xs" p="xs" style={{ 
-          backgroundColor: auction.status === 'live' ? '#e7f5ff' : '#fff3cd',
-          borderRadius: 8,
-        }}>
-          <Clock3 size={14} color={auction.status === 'live' ? '#228be6' : '#fd7e14'} />
-          <Text 
-            size="sm" 
-            fw={500} 
-            c={auction.status === 'live' ? 'blue' : 'orange'}
-          >
-            {auction.status === 'live' ? 'En cours' : auction.timeLeft}
-          </Text>
-        </Group>
+        {/* Action Buttons */}
+        <div>
+          {isActive && (
+            <Stack gap="xs">
+              <Button
+                fullWidth
+                leftSection={<TrendingUp size={16} />}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onQuickBid?.(e);
+                }}
+                size="sm"
+                variant="filled"
+              >
+                Bid {formatPrice(nextBid)} د.م
+              </Button>
+
+              {buyNowPrice && (
+                <Button
+                  fullWidth
+                  leftSection={<Zap size={16} />}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onBuyNow?.(e);
+                  }}
+                  size="sm"
+                  variant="light"
+                  color="violet"
+                >
+                  Buy Now {formatPrice(buyNowPrice)} د.م
+                </Button>
+              )}
+            </Stack>
+          )}
+
+          {isEnded && (
+            <Badge color="gray" size="lg" fullWidth>
+              Auction Ended
+            </Badge>
+          )}
+
+          {status === 'SCHEDULED' && (
+            <Badge color="blue" size="lg" fullWidth>
+              Starting Soon
+            </Badge>
+          )}
+        </div>
       </Stack>
     </Card>
   );
+});
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+function formatPrice(price: number): string {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'decimal',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(price);
 }
+
+// Add pulse animation CSS (add to globals.css)
+/*
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+*/

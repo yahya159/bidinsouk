@@ -1,0 +1,1 @@
+export { OrderDetailPageClient } from './OrderDetailPageClient';

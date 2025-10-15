@@ -3,8 +3,9 @@ import { getStoreBySlug } from '@/lib/services/stores'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params: paramsPromise }: { params: Promise<{ slug: string }> }
 ) {
+  const params = await paramsPromise
   try {
     const store = await getStoreBySlug(params.slug)
 

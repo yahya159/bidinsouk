@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { moderateReview } from '@/lib/services/admin'
-
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  const role = req.headers.get('x-user-role')
-  if (!userId) return null
-  return { userId: BigInt(userId), role }
-}
+import { requireRole } from '@/lib/auth/api-auth'
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: paramsPromise }: { params: Promise<{ id: string }> }
 ) {
+  const params = await paramsPromise
   try {
-    const user = getCurrentUser(req)
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, ['ADMIN'])
 
     const { status } = await req.json()
     if (!['APPROVED', 'REJECTED'].includes(status)) {
@@ -26,6 +18,18 @@ export async function POST(
     const review = await moderateReview(BigInt(params.id), status)
     return NextResponse.json({ review })
   } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    if (error.message === 'Forbidden') {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 }

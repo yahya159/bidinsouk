@@ -1,107 +1,90 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth/config'
-import { UpdateProductDto } from '@/lib/validations/products'
-import { getProduct, updateProduct, deleteProduct } from '@/lib/services/products'
-import { prisma } from '@/lib/db/prisma'
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db/prisma';
+import { logger } from '@/lib/logger';
+import { successResponse, ErrorResponses } from '@/lib/api/responses';
+import { getProductRatingStats, getStoreRatingStats, getProductReviews } from '@/lib/services/reviews';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const product = await getProduct(BigInt(params.id))
+    const { id: productId } = await params;
+
+    // Fetch product with related data
+    const product = await prisma.product.findUnique({
+      where: { id: BigInt(productId) },
+      include: {
+        store: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+          }
+        },
+        productImages: true,
+        _count: {
+          select: {
+            reviews: true,
+          }
+        }
+      }
+    });
 
     if (!product) {
-      return NextResponse.json({ error: 'Produit non trouvé' }, { status: 404 })
+      return ErrorResponses.notFound('Product');
     }
 
-    return NextResponse.json(product)
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: 'Erreur lors de la récupération du produit' },
-      { status: 500 }
-    )
-  }
-}
+    // Get rating stats and reviews
+    const [ratingStats, storeRatingStats, reviewsData] = await Promise.all([
+      getProductRatingStats(product.id),
+      product.store ? getStoreRatingStats(product.store.id) : Promise.resolve({ average: 0, total: 0 }),
+      getProductReviews(product.id, { status: 'APPROVED', limit: 10 })
+    ]);
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const session = await getServerSession(authConfig)
+    // Format response
+    const response = {
+      id: product.id.toString(),
+      title: product.title,
+      description: product.description,
+      price: product.price,
+      category: product.category || 'Non classé',
+      condition: product.condition,
+      images: product.productImages?.map(img => ({
+        url: img.url,
+        alt: img.altText || product.title,
+      })) || [],
+      inventory: product.inventory,
+      store: {
+        id: product.store?.id.toString(),
+        name: product.store?.name || 'Boutique inconnue',
+        rating: storeRatingStats.average,
+        logo: product.store?.logo,
+      },
+      tags: product.tags || [],
+      rating: ratingStats.average,
+      ratingDistribution: ratingStats.distribution,
+      reviewsCount: product._count.reviews,
+      reviews: reviewsData.reviews.map(review => ({
+        id: review.id.toString(),
+        rating: review.rating,
+        body: review.body,
+        photos: review.photos,
+        verified: review.verified,
+        createdAt: review.createdAt.toISOString(),
+        user: {
+          name: review.client.user.name,
+          avatarUrl: review.client.user.avatarUrl
+        }
+      })),
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    };
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
+    return successResponse({ data: response });
 
-    const vendor = await prisma.vendor.findUnique({
-      where: { userId: BigInt(session.user.id) }
-    })
-
-    if (!vendor) {
-      return NextResponse.json({ error: 'Accès vendeur requis' }, { status: 403 })
-    }
-
-    const existingProduct = await prisma.product.findUnique({
-      where: { id: BigInt(params.id) },
-      include: { store: true }
-    })
-
-    if (!existingProduct || existingProduct.store.sellerId !== vendor.id) {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
-
-    const body = await request.json()
-    const data = UpdateProductDto.parse(body)
-
-    const product = await updateProduct(BigInt(params.id), existingProduct.storeId, data)
-
-    return NextResponse.json(product)
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Erreur lors de la mise à jour du produit' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const session = await getServerSession(authConfig)
-
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
-
-    const vendor = await prisma.vendor.findUnique({
-      where: { userId: BigInt(session.user.id) }
-    })
-
-    if (!vendor) {
-      return NextResponse.json({ error: 'Accès vendeur requis' }, { status: 403 })
-    }
-
-    const existingProduct = await prisma.product.findUnique({
-      where: { id: BigInt(params.id) },
-      include: { store: true }
-    })
-
-    if (!existingProduct || existingProduct.store.sellerId !== vendor.id) {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
-
-    await deleteProduct(BigInt(params.id), existingProduct.storeId)
-
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Erreur lors de la suppression du produit' },
-      { status: 500 }
-    )
+  } catch (error) {
+    logger.error('Failed to fetch product details', error);
+    return ErrorResponses.serverError('Failed to fetch product details', error);
   }
 }

@@ -2,9 +2,11 @@ import { z } from 'zod'
 
 export const CreateReviewDto = z.object({
   productId: z.string(),
-  rating: z.number().min(1).max(5),
+  rating: z.number().int('Note doit être un entier').min(1, 'Note minimum: 1').max(5, 'Note maximum: 5'),
   body: z.string().min(10, 'Avis requis (min 10 caractères)'),
-  photos: z.array(z.string().url()).optional()
+  photos: z.array(z.string().url('URL de photo invalide')).optional(),
+  verified: z.boolean().default(false),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).default('PENDING')
 })
 
 export const CreateQuestionDto = z.object({

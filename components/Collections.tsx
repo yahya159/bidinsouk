@@ -39,14 +39,11 @@ export default function Collections() {
         padding="xl" 
         radius="md" 
         withBorder
-        sx={(theme) => ({
+        style={{
           cursor: 'pointer',
           transition: 'transform 0.2s ease',
-          '&:hover': {
-            transform: 'scale(1.02)',
-            borderColor: theme.colors.blue[6],
-          },
-        })}
+        }}
+        className="hover:scale-105 hover:border-blue-500"
       >
         <Box mb="md">
           <item.icon size={32} stroke={1.5} color="#339af0" />

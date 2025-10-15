@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, StoreStatus, AuctionStatus } from '@prisma/client'
+import { PrismaClient, Role, StoreStatus, AuctionStatus } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -9,7 +9,8 @@ async function main() {
     create: {
       email: 'vendor@demo.local',
       name: 'Demo Vendor',
-      role: UserRole.VENDOR
+      role: Role.VENDOR,
+      password: 'hashed_password_here'
     },
   })
 
@@ -20,7 +21,7 @@ async function main() {
       slug: 'demo-store',
       email: 'store@demo.local',
       phone: '000',
-      status: StoreStatus.active
+      status: StoreStatus.ACTIVE
     }
   })
 
@@ -28,7 +29,7 @@ async function main() {
     data: {
       storeId: store.id,
       title: 'Sample Product',
-      status: 'draft'
+      status: 'DRAFT'
     }
   })
 
@@ -37,7 +38,10 @@ async function main() {
       productId: prod.id,
       storeId: store.id,
       title: 'Sample Auction',
-      status: AuctionStatus.scheduled
+      status: AuctionStatus.SCHEDULED,
+      minIncrement: 10,
+      startPrice: 100,
+      endAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     }
   })
 }

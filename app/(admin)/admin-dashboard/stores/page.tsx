@@ -1,32 +1,33 @@
-'use client'
+'use client';
 
-import { 
-  Container, 
-  Title, 
-  Text, 
-  Card, 
-  Stack, 
-  Group, 
-  Button, 
-  Alert, 
+import { useState, useEffect } from 'react';
+import {
+  Container,
+  Title,
+  Text,
+  Button,
+  Group,
+  Stack,
+  Tabs,
+  Alert,
   Loader,
-  Badge,
-  Table,
-  ActionIcon,
-  Tabs
-} from '@mantine/core'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { IconCheck, IconX, IconAlertCircle, IconRefresh, IconUserCheck, IconUserX } from '@tabler/icons-react'
-import { SiteHeader } from '@/components/layout/SiteHeader'
-import Footer from '@/components/shared/Footer'
+  Center,
+  Paper,
+} from '@mantine/core';
+import { IconPlus, IconAlertCircle, IconCheck } from '@tabler/icons-react';
+import { useRouter } from 'next/navigation';
+import { StoresTable } from '@/components/admin/stores/StoresTable';
+import { ConfirmDialog } from '@/components/admin/shared/ConfirmDialog';
+import { notifications } from '@mantine/notifications';
 
-interface PendingStore {
+type StoreStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
+
+interface Store {
   id: string;
   name: string;
   email: string;
   phone: string | null;
-  status: string;
+  status: StoreStatus;
   createdAt: string;
   seller: {
     id: string;
@@ -34,449 +35,240 @@ interface PendingStore {
       id: string;
       name: string;
       email: string;
-    }
-  }
-}
-
-interface PendingVendor {
-  id: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    phone: string | null;
-    createdAt: string;
+    };
   };
-  stores: {
-    id: string;
-    name: string;
-    status: string;
-    sellerId: string;
-    createdAt: string;
-  }[];
+  _count?: {
+    products: number;
+    auctions: number;
+    orders: number;
+  };
 }
 
-export default function AdminStoresPage() {
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState<string | null>('stores');
-  const [stores, setStores] = useState<PendingStore[]>([])
-  const [vendors, setVendors] = useState<PendingVendor[]>([])
-  const [loading, setLoading] = useState(true)
-  const [processing, setProcessing] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+export default function StoresPage() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<string | null>('all');
+  const [stores, setStores] = useState<Store[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [storeToDelete, setStoreToDelete] = useState<string | null>(null);
 
-  const fetchPendingStores = async () => {
+  const fetchStores = async () => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
       
-      const response = await fetch('/api/admin/stores/pending', {
-        credentials: 'include'
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setStores(data.stores || [])
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Erreur lors du chargement des boutiques')
-      }
-    } catch (err) {
-      setError('Erreur de connexion au serveur')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchPendingVendors = async () => {
-    try {
-      setLoading(true)
-      setError(null)
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+      });
       
-      const response = await fetch('/api/admin/vendors/pending', {
-        credentials: 'include'
-      })
-      const text = await response.text();
+      if (search) params.append('search', search);
+      if (statusFilter) params.append('status', statusFilter);
+      
+      const response = await fetch(`/api/admin/stores?${params.toString()}`);
       
       if (response.ok) {
-        const data = JSON.parse(text)
-        setVendors(data.vendors || [])
+        const data = await response.json();
+        setStores(data.stores || []);
+        setTotalCount(data.pagination?.totalCount || 0);
       } else {
-        try {
-          const errorData = JSON.parse(text)
-          setError(errorData.error || 'Erreur lors du chargement des vendeurs')
-        } catch {
-          setError('Erreur lors du chargement des vendeurs')
-        }
+        const errorData = await response.json();
+        notifications.show({
+          title: 'Error',
+          message: errorData.error || 'Failed to fetch stores',
+          color: 'red',
+        });
       }
-    } catch (err) {
-      setError('Erreur de connexion au serveur')
+    } catch (error) {
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to connect to server',
+        color: 'red',
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    if (activeTab === 'stores') {
-      fetchPendingStores()
-    } else if (activeTab === 'vendors') {
-      fetchPendingVendors()
-    }
-  }, [activeTab])
+    fetchStores();
+  }, [page, search, statusFilter]);
 
-  const handleApproveStore = async (storeId: string) => {
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleSearch = (searchValue: string) => {
+    setSearch(searchValue);
+    setPage(1); // Reset to first page on search
+  };
+
+  const handleStatusFilter = (status: string | null) => {
+    setStatusFilter(status);
+    setPage(1); // Reset to first page on filter
+  };
+
+  const handleDelete = (storeId: string) => {
+    setStoreToDelete(storeId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!storeToDelete) return;
+
     try {
-      setProcessing(storeId)
-      setSuccess(null)
-      setError(null)
-      
-      const response = await fetch(`/api/admin/stores/${storeId}/approve`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include'
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        setSuccess(data.message || 'Boutique approuvée avec succès')
-        // Retirer la boutique de la liste
-        setStores(stores.filter(store => store.id !== storeId))
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Erreur lors de l\'approbation')
-      }
-    } catch (err) {
-      setError('Erreur de connexion au serveur')
-    } finally {
-      setProcessing(null)
-    }
-  }
+      const response = await fetch(`/api/admin/stores/${storeToDelete}`, {
+        method: 'DELETE',
+      });
 
-  const handleRejectStore = async (storeId: string) => {
-    try {
-      setProcessing(storeId)
-      setSuccess(null)
-      setError(null)
-      
-      const response = await fetch(`/api/admin/stores/${storeId}/reject`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include'
-      })
-      
       if (response.ok) {
-        const data = await response.json()
-        setSuccess(data.message || 'Boutique rejetée avec succès')
-        // Retirer la boutique de la liste
-        setStores(stores.filter(store => store.id !== storeId))
+        notifications.show({
+          title: 'Success',
+          message: 'Store deleted successfully',
+          color: 'green',
+          icon: <IconCheck size={16} />,
+        });
+        fetchStores(); // Refresh the list
       } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Erreur lors du rejet')
+        const errorData = await response.json();
+        notifications.show({
+          title: 'Error',
+          message: errorData.error || 'Failed to delete store',
+          color: 'red',
+        });
       }
-    } catch (err) {
-      setError('Erreur de connexion au serveur')
+    } catch (error) {
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to connect to server',
+        color: 'red',
+      });
     } finally {
-      setProcessing(null)
+      setDeleteDialogOpen(false);
+      setStoreToDelete(null);
     }
-  }
+  };
 
-  const handleApproveVendor = async (vendorId: string) => {
-    try {
-      setProcessing(vendorId)
-      setSuccess(null)
-      setError(null)
-      
-      const response = await fetch(`/api/admin/vendors/${vendorId}/approve`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include'
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        setSuccess(data.message || 'Vendeur approuvé avec succès')
-        // Retirer le vendeur de la liste
-        setVendors(vendors.filter(vendor => vendor.id !== vendorId))
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Erreur lors de l\'approbation du vendeur')
-      }
-    } catch (err) {
-      setError('Erreur de connexion au serveur')
-    } finally {
-      setProcessing(null)
-    }
-  }
+  const handleBulkApprove = async () => {
+    // TODO: Implement bulk approve functionality
+    notifications.show({
+      title: 'Info',
+      message: 'Bulk approve functionality coming soon',
+      color: 'blue',
+    });
+  };
 
-  const handleRejectVendor = async (vendorId: string) => {
-    try {
-      setProcessing(vendorId)
-      setSuccess(null)
-      setError(null)
-      
-      const response = await fetch(`/api/admin/vendors/${vendorId}/reject`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include'
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        setSuccess(data.message || 'Vendeur rejeté avec succès')
-        // Retirer le vendeur de la liste
-        setVendors(vendors.filter(vendor => vendor.id !== vendorId))
-      } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Erreur lors du rejet du vendeur')
-      }
-    } catch (err) {
-      setError('Erreur de connexion au serveur')
-    } finally {
-      setProcessing(null)
-    }
-  }
-
-  if (loading) {
-    return (
-      <>
-        <SiteHeader />
-        <Container size="xl" py="xl">
-          <Stack align="center" justify="center" style={{ height: '400px' }}>
-            <Loader />
-            <Text>Chargement des boutiques en attente...</Text>
-          </Stack>
-        </Container>
-        <Footer />
-      </>
-    )
-  }
+  const handleBulkReject = async () => {
+    // TODO: Implement bulk reject functionality
+    notifications.show({
+      title: 'Info',
+      message: 'Bulk reject functionality coming soon',
+      color: 'blue',
+    });
+  };
 
   return (
-    <>
-      <SiteHeader />
-      <Container size="xl" py="xl">
-        <Stack gap="xl">
-          <Title order={1}>Gestion des boutiques et vendeurs</Title>
-          <Text c="dimmed">
-            Approuvez ou rejetez les boutiques et vendeurs en attente de validation
-          </Text>
+    <Container size="xl" py="xl">
+      <Stack gap="xl">
+        {/* Header */}
+        <Group justify="space-between">
+          <div>
+            <Title order={1}>Store Management</Title>
+            <Text c="dimmed" size="sm">
+              Manage all stores on the platform
+            </Text>
+          </div>
+          <Button
+            leftSection={<IconPlus size={16} />}
+            onClick={() => router.push('/admin-dashboard/stores/new')}
+          >
+            Create Store
+          </Button>
+        </Group>
 
-          {success && (
-            <Alert 
-              icon={<IconCheck size={16} />} 
-              title="Succès" 
-              color="green"
-            >
-              {success}
-            </Alert>
-          )}
+        {/* Tabs */}
+        <Tabs value={activeTab} onChange={setActiveTab}>
+          <Tabs.List>
+            <Tabs.Tab value="all">All Stores</Tabs.Tab>
+            <Tabs.Tab value="pending">Pending Approval</Tabs.Tab>
+          </Tabs.List>
 
-          {error && (
-            <Alert 
-              icon={<IconAlertCircle size={16} />} 
-              title="Erreur" 
-              color="red"
-            >
-              {error}
-            </Alert>
-          )}
+          <Tabs.Panel value="all" pt="lg">
+            <StoresTable
+              stores={stores}
+              totalCount={totalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onSearch={handleSearch}
+              onStatusFilter={handleStatusFilter}
+              loading={loading}
+              onDelete={handleDelete}
+            />
+          </Tabs.Panel>
 
-          <Tabs value={activeTab} onChange={setActiveTab}>
-            <Tabs.List>
-              <Tabs.Tab value="stores">Boutiques en attente</Tabs.Tab>
-              <Tabs.Tab value="vendors">Vendeurs en attente</Tabs.Tab>
-            </Tabs.List>
-
-            <Tabs.Panel value="stores" pt="lg">
-              <Card shadow="sm" padding="lg" radius="md" withBorder>
-                <Group justify="space-between" mb="md">
-                  <Title order={3}>Boutiques en attente ({stores.length})</Title>
-                  <Button 
-                    leftSection={<IconRefresh size={16} />}
-                    variant="outline"
-                    onClick={fetchPendingStores}
-                  >
-                    Actualiser
-                  </Button>
+          <Tabs.Panel value="pending" pt="lg">
+            <Paper p="md" withBorder>
+              <Stack gap="md">
+                <Group justify="space-between">
+                  <Text fw={500}>Pending Stores</Text>
+                  <Group gap="xs">
+                    <Button
+                      size="sm"
+                      color="green"
+                      onClick={handleBulkApprove}
+                      disabled={loading}
+                    >
+                      Bulk Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      color="red"
+                      variant="outline"
+                      onClick={handleBulkReject}
+                      disabled={loading}
+                    >
+                      Bulk Reject
+                    </Button>
+                  </Group>
                 </Group>
 
-                {stores.length === 0 ? (
-                  <Text ta="center" py="xl" c="dimmed">
-                    Aucune boutique en attente d'approbation
-                  </Text>
+                {loading ? (
+                  <Center p="xl">
+                    <Loader />
+                  </Center>
                 ) : (
-                  <Table.ScrollContainer minWidth={800}>
-                    <Table verticalSpacing="sm">
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Boutique</Table.Th>
-                          <Table.Th>Propriétaire</Table.Th>
-                          <Table.Th>Contact</Table.Th>
-                          <Table.Th>Date de demande</Table.Th>
-                          <Table.Th>Actions</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {stores.map((store) => (
-                          <Table.Tr key={store.id}>
-                            <Table.Td>
-                              <Stack gap={4}>
-                                <Text fw={500}>{store.name}</Text>
-                                <Badge color="yellow">En attente</Badge>
-                              </Stack>
-                            </Table.Td>
-                            <Table.Td>
-                              <Stack gap={0}>
-                                <Text size="sm">{store.seller.user.name}</Text>
-                                <Text size="xs" c="dimmed">{store.seller.user.email}</Text>
-                              </Stack>
-                            </Table.Td>
-                            <Table.Td>
-                              <Stack gap={0}>
-                                <Text size="sm">{store.email}</Text>
-                                {store.phone && (
-                                  <Text size="xs" c="dimmed">{store.phone}</Text>
-                                )}
-                              </Stack>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm">
-                                {new Date(store.createdAt).toLocaleDateString('fr-FR')}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Group gap="xs">
-                                <ActionIcon
-                                  variant="filled"
-                                  color="green"
-                                  onClick={() => handleApproveStore(store.id)}
-                                  loading={processing === store.id}
-                                  title="Approuver"
-                                >
-                                  <IconCheck size={16} />
-                                </ActionIcon>
-                                <ActionIcon
-                                  variant="filled"
-                                  color="red"
-                                  onClick={() => handleRejectStore(store.id)}
-                                  loading={processing === store.id}
-                                  title="Rejeter"
-                                >
-                                  <IconX size={16} />
-                                </ActionIcon>
-                              </Group>
-                            </Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </Table.ScrollContainer>
+                  <StoresTable
+                    stores={stores.filter((s) => s.status === 'PENDING')}
+                    totalCount={stores.filter((s) => s.status === 'PENDING').length}
+                    page={1}
+                    pageSize={100}
+                    onPageChange={() => {}}
+                    onSearch={handleSearch}
+                    onStatusFilter={() => {}}
+                    loading={loading}
+                  />
                 )}
-              </Card>
-            </Tabs.Panel>
+              </Stack>
+            </Paper>
+          </Tabs.Panel>
+        </Tabs>
 
-            <Tabs.Panel value="vendors" pt="lg">
-              <Card shadow="sm" padding="lg" radius="md" withBorder>
-                <Group justify="space-between" mb="md">
-                  <Title order={3}>Vendeurs en attente ({vendors.length})</Title>
-                  <Button 
-                    leftSection={<IconRefresh size={16} />}
-                    variant="outline"
-                    onClick={fetchPendingVendors}
-                  >
-                    Actualiser
-                  </Button>
-                </Group>
-
-                {vendors.length === 0 ? (
-                  <Text ta="center" py="xl" c="dimmed">
-                    Aucun vendeur en attente d'approbation
-                  </Text>
-                ) : (
-                  <Table.ScrollContainer minWidth={800}>
-                    <Table verticalSpacing="sm">
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Vendeur</Table.Th>
-                          <Table.Th>Boutique(s)</Table.Th>
-                          <Table.Th>Contact</Table.Th>
-                          <Table.Th>Date d'inscription</Table.Th>
-                          <Table.Th>Actions</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {vendors.map((vendor) => (
-                          <Table.Tr key={vendor.id}>
-                            <Table.Td>
-                              <Stack gap={0}>
-                                <Text fw={500}>{vendor.user.name}</Text>
-                                <Text size="xs" c="dimmed">{vendor.user.email}</Text>
-                              </Stack>
-                            </Table.Td>
-                            <Table.Td>
-                              <Stack gap={4}>
-                                {vendor.stores.map(store => (
-                                  <Badge key={store.id} color={store.status === 'PENDING' ? 'yellow' : 'blue'}>
-                                    {store.name} ({store.status})
-                                  </Badge>
-                                ))}
-                              </Stack>
-                            </Table.Td>
-                            <Table.Td>
-                              <Stack gap={0}>
-                                <Text size="sm">{vendor.user.email}</Text>
-                                {vendor.user.phone && (
-                                  <Text size="xs" c="dimmed">{vendor.user.phone}</Text>
-                                )}
-                              </Stack>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm">
-                                {new Date(vendor.user.createdAt).toLocaleDateString('fr-FR')}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Group gap="xs">
-                                <ActionIcon
-                                  variant="filled"
-                                  color="green"
-                                  onClick={() => handleApproveVendor(vendor.id)}
-                                  loading={processing === vendor.id}
-                                  title="Approuver le vendeur"
-                                >
-                                  <IconUserCheck size={16} />
-                                </ActionIcon>
-                                <ActionIcon
-                                  variant="filled"
-                                  color="red"
-                                  onClick={() => handleRejectVendor(vendor.id)}
-                                  loading={processing === vendor.id}
-                                  title="Rejeter le vendeur"
-                                >
-                                  <IconUserX size={16} />
-                                </ActionIcon>
-                              </Group>
-                            </Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </Table.ScrollContainer>
-                )}
-              </Card>
-            </Tabs.Panel>
-          </Tabs>
-        </Stack>
-      </Container>
-      <Footer />
-    </>
-  )
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          opened={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          onConfirm={confirmDelete}
+          title="Delete Store"
+          message="Are you sure you want to delete this store? This action cannot be undone and will affect all associated products and auctions."
+          confirmLabel="Delete"
+          confirmColor="red"
+        />
+      </Stack>
+    </Container>
+  );
 }

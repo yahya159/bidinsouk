@@ -27,11 +27,27 @@ export const authConfig: NextAuthOptions = {
         
         if (!isPasswordValid) return null
         
+        // Parse roles from JSON field
+        let rolesArray: string[] = []
+        if (user.roles) {
+          try {
+            const parsed = typeof user.roles === 'string' 
+              ? JSON.parse(user.roles as string)
+              : user.roles
+            rolesArray = Array.isArray(parsed) ? parsed : [user.role]
+          } catch {
+            rolesArray = [user.role]
+          }
+        } else {
+          rolesArray = [user.role]
+        }
+        
         return {
           id: user.id.toString(),
           email: user.email,
           name: user.name || '',
-          role: user.role
+          role: user.role,
+          roles: rolesArray
         }
       }
     })
@@ -41,6 +57,7 @@ export const authConfig: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
+        token.roles = user.roles || [user.role]
       }
       return token
     },
@@ -48,6 +65,7 @@ export const authConfig: NextAuthOptions = {
       if (token && session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
+        session.user.roles = token.roles as string[]
       }
       return session
     }

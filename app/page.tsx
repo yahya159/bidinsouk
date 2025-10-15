@@ -1,16 +1,30 @@
 import { getSession } from '@/lib/auth/session'
-import { Button, Card, Title, Text, Container, Group, Stack, SimpleGrid, Badge } from '@mantine/core';
+import { Button, Title, Text, Container, Group, SimpleGrid } from '@mantine/core';
 import AuctionCard from "@/components/AuctionCard";
-import { listAuctions } from "@/lib/services/auctions";
+import { listAuctions, type AuctionListItem } from "@/lib/services/auctions";
 import ModernHero from '@/components/ModernHero';
 import Collections from '@/components/Collections';
 import ModernFeatures from '@/components/ModernFeatures';
 import Testimonials from '@/components/Testimonials';
+import { redirect } from 'next/navigation';
 
 export default async function Home() {
   const session = await getSession()
-  const { auctions: liveAuctions } = await listAuctions({ status: 'RUNNING', page: 1, limit: 8 })
-  const { auctions: endingSoon } = await listAuctions({ status: 'ENDING_SOON', page: 1, limit: 4 })
+  
+  // Handle role-based redirects on the server side
+  if (session?.user) {
+    const role = session.user.role;
+    if (role === 'ADMIN' || role === 'VENDOR') {
+      redirect('/workspace/dashboard');
+    }
+  }
+  
+  const [liveAuctionsResult, endingSoonResult] = await Promise.all([
+    listAuctions({ status: 'live', page: 1, limit: 8 }),
+    listAuctions({ status: 'ending_soon', page: 1, limit: 4 })
+  ])
+  const liveAuctions = liveAuctionsResult.auctions
+  const endingSoon = endingSoonResult.auctions
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -27,7 +41,7 @@ export default async function Home() {
           <Button variant="subtle" component="a" href="/auctions">Voir tout</Button>
         </Group>
         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg">
-          {endingSoon.map((a: any) => (
+          {endingSoon.map((a: AuctionListItem) => (
             <AuctionCard key={a.id} auction={a} />
           ))}
         </SimpleGrid>
@@ -49,7 +63,7 @@ export default async function Home() {
           <Button variant="subtle" component="a" href="/auctions">Voir tout</Button>
         </Group>
         <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="lg">
-          {liveAuctions.map((a: any) => (
+          {liveAuctions.map((a: AuctionListItem) => (
             <AuctionCard key={a.id} auction={a} />
           ))}
         </SimpleGrid>

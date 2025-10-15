@@ -89,14 +89,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authConfig);
     
-    // Development mode bypass
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (!session?.user && !isDevelopment) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    if (!isDevelopment && session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
+    if (session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
 
@@ -143,14 +140,11 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authConfig);
     
-    // Development mode bypass
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (!session?.user && !isDevelopment) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    if (!isDevelopment && session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
+    if (session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
 

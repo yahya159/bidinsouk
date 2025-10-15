@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { authConfig as authOptions } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         id: threadId,
         participants: {
           some: {
-            userId: session.user.id
+            userId: BigInt(session.user.id)
           }
         }
       }
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         url: `/uploads/messages/${filename}`,
         size: file.size,
         mimeType: file.type,
-        uploadedById: session.user.id
+        uploadedById: BigInt(session.user.id)
         // messageId sera défini lors de l'envoi du message
       }
     });
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
               include: {
                 participants: {
                   where: {
-                    userId: session.user.id
+                    userId: BigInt(session.user.id)
                   }
                 }
               }
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Vérifier que l'utilisateur a accès à cette pièce jointe
-    if (!attachment.message?.thread.participants.length && attachment.uploadedById !== session.user.id) {
+    if (!attachment.message?.thread.participants.length && attachment.uploadedById !== BigInt(session.user.id)) {
       return NextResponse.json(
         { error: 'Accès non autorisé' },
         { status: 403 }

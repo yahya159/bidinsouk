@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { authConfig as authOptions } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/prisma';
 
 // GET - Récupérer la liste des vendeurs actifs
 export async function GET(request: NextRequest) {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             email: true,
-            image: true
+            avatarUrl: true
           }
         },
         stores: {
@@ -54,10 +54,10 @@ export async function GET(request: NextRequest) {
 
     // Formater les données
     const formattedVendors = vendors.map(vendor => ({
-      id: vendor.id,
+      id: vendor.id.toString(),
       name: vendor.user.name,
       email: vendor.user.email,
-      avatar: vendor.user.image,
+      avatar: vendor.user.avatarUrl,
       storeName: vendor.stores[0]?.name || 'Boutique sans nom',
       storeSlug: vendor.stores[0]?.slug
     }));

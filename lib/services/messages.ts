@@ -23,15 +23,21 @@ export async function createThread(input: CreateThreadInput) {
   // Create the thread
   const thread = await prisma.messageThread.create({
     data: {
-      type: 'PRODUCT', // Default type, can be changed based on context
+      type: 'VENDOR_CHAT', // Use valid ThreadType enum value
       subject: title || 'New Conversation',
-      userId: creatorId, // Use userId instead of participants
-      messages: {
-        create: []
+      participants: {
+        create: participantIds.map(userId => ({
+          userId,
+          role: userId === creatorId ? 'USER' : 'VENDOR'
+        }))
       }
     },
     include: {
-      user: true // Include the user instead of participants
+      participants: {
+        include: {
+          user: true
+        }
+      }
     }
   })
   
@@ -44,10 +50,10 @@ export async function postMessage(input: PostMessageInput) {
   // Create the message
   const message = await prisma.message.create({
     data: {
-      threadId,
+      threadId: threadId.toString(),
       senderId: authorId,
-      bodyMd: body,
-      attachments
+      content: body,
+      attachments: attachments || undefined
     },
     include: {
       sender: true,
@@ -57,7 +63,7 @@ export async function postMessage(input: PostMessageInput) {
   
   // Update the thread's lastMessageAt timestamp
   await prisma.messageThread.update({
-    where: { id: threadId },
+    where: { id: threadId.toString() },
     data: { lastMessageAt: new Date() }
   })
   
@@ -72,7 +78,7 @@ export async function postMessage(input: PostMessageInput) {
 
 export async function getThreadMessages(threadId: bigint, limit: number = 50) {
   const messages = await prisma.message.findMany({
-    where: { threadId },
+    where: { threadId: threadId.toString() },
     include: {
       sender: true
     },

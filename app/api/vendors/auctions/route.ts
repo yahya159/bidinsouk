@@ -10,10 +10,10 @@ const createAuctionSchema = z.object({
   description: z.string().min(1, 'La description est requise').max(2000, 'La description ne peut pas dépasser 2000 caractères'),
   images: z.array(z.string().url('URL d\'image invalide')).min(1, 'Au moins une image est requise').max(10, 'Maximum 10 images autorisées'),
   category: z.string().min(1, 'La catégorie est requise'),
-  startingPrice: z.number().min(1, 'Le prix de départ doit être supérieur à 0').max(1000000, 'Prix de départ trop élevé'),
+  startPrice: z.number().min(1, 'Le prix de départ doit être supérieur à 0').max(1000000, 'Prix de départ trop élevé'),
   reservePrice: z.number().min(0).max(1000000).optional().nullable(),
   duration: z.number().min(1, 'La durée doit être d\'au moins 1 heure').max(168, 'La durée ne peut pas dépasser 7 jours'),
-  startTime: z.string().optional(),
+  startAt: z.string().optional(),
   autoExtend: z.boolean().optional().default(false),
   extendMinutes: z.number().min(1).max(30).optional().default(5),
 });
@@ -24,7 +24,7 @@ const querySchema = z.object({
   search: z.string().optional(),
   status: z.enum(['DRAFT', 'SCHEDULED', 'ACTIVE', 'ENDING_SOON', 'ENDED', 'CANCELLED']).optional(),
   category: z.string().optional(),
-  sortBy: z.enum(['createdAt', 'endTime', 'currentBid', 'bidCount', 'views', 'title']).optional().default('createdAt'),
+  sortBy: z.enum(['createdAt', 'endAt', 'currentBid', 'bidCount', 'views', 'title']).optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
@@ -36,48 +36,147 @@ const querySchema = z.object({
 
 // GET /api/vendors/auctions - List auctions with filtering and pagination
 export async function GET(request: NextRequest) {
-  console.log('🚀 GET /api/vendors/auctions - Starting simplified request');
+  console.log('🚀 GET /api/vendors/auctions - Starting request');
   
   try {
-    // Return empty data since database is clean
-    console.log('📦 Returning empty data - database is clean');
+    const session = await getServerSession(authConfig);
     
-    const mockAuctions: any[] = [];
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+    }
 
-    const stats = {
-      totalAuctions: 0,
-      activeAuctions: 0,
-      endingSoon: 0,
-      scheduledAuctions: 0,
-      archivedAuctions: 0,
-      totalRevenue: 0,
-      totalViews: 0,
-      totalWatchers: 0,
-      averageBidsPerAuction: 0,
-      conversionRate: 0,
-      averageSellingPrice: 0,
+    // Check if user is vendor or admin
+    if (session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+    }
+
+    // Get vendor's store
+    const vendor = await prisma.vendor.findUnique({
+      where: { userId: BigInt(session?.user?.id || '1') },
+      include: { stores: true }
+    });
+
+    // Check if vendor profile exists
+    if (!vendor) {
+      return NextResponse.json(
+        { 
+          error: 'Vendor profile required',
+          message: 'Please complete vendor application first'
+        },
+        { status: 403 }
+      );
+    }
+
+    // Check if vendor has at least one active store
+    const activeStore = vendor.stores.find(s => s.status === 'ACTIVE');
+    if (!activeStore) {
+      return NextResponse.json(
+        { 
+          error: 'Active store required',
+          message: 'Please create and get approval for a store before creating auctions'
+        },
+        { status: 403 }
+      );
+    }
+
+    const store = activeStore;
+
+    // Parse query parameters
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    const status = searchParams.get('status') || '';
+    
+    // Build where clause
+    const where: any = {
+      storeId: store.id
     };
+    
+    if (status && status !== 'Tous') {
+      where.status = status;
+    }
+    
+    if (search) {
+      where.title = {
+        contains: search,
+        mode: 'insensitive'
+      };
+    }
+
+    // Get auctions with pagination
+    const [auctions, totalCount] = await Promise.all([
+      prisma.auction.findMany({
+        where,
+        include: {
+          product: true,
+          store: true,
+          bids: {
+            take: 1,
+            orderBy: {
+              createdAt: 'desc'
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        skip: (page - 1) * limit,
+        take: limit
+      }),
+      prisma.auction.count({ where })
+    ]);
+
+    // Format auctions for response
+    const formattedAuctions = auctions.map(auction => ({
+      id: auction.id.toString(),
+      title: auction.title,
+      description: auction.description,
+      image: Array.isArray(auction.images) && auction.images.length > 0 
+        ? auction.images[0] 
+        : 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop&auto=format',
+      productId: auction.productId?.toString(),
+      status: auction.status,
+      startingPrice: Number(auction.startPrice),
+      reservePrice: auction.reservePrice ? Number(auction.reservePrice) : undefined,
+      currentBid: Number(auction.currentBid),
+      increment: Number(auction.minIncrement),
+      bidCount: auction.bids.length,
+      startTime: auction.startAt.toISOString(),
+      endTime: auction.endAt.toISOString(),
+      duration: Math.floor((auction.endAt.getTime() - auction.startAt.getTime()) / (1000 * 60 * 60)), // in hours
+      views: auction.views,
+      watchers: auction.watchers,
+      autoBidEnabled: auction.autoExtend,
+      antiSnipingEnabled: auction.extendMinutes > 0,
+      winnerId: auction.winnerId?.toString(),
+      winnerName: null, // Would need to join with user table to get this
+      createdAt: auction.createdAt.toISOString(),
+      updatedAt: auction.updatedAt.toISOString()
+    }));
+
+    // Calculate statistics
+    const stats = await calculateAuctionStats(store.id);
 
     const response = {
-      auctions: mockAuctions,
+      auctions: formattedAuctions,
       pagination: {
-        page: 1,
-        limit: 10,
-        totalCount: 0,
-        totalPages: 0,
-        hasNext: false,
-        hasPrev: false,
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasNext: page * limit < totalCount,
+        hasPrev: page > 1,
       },
       stats,
     };
 
-    console.log('✅ Returning successful response with', mockAuctions.length, 'auctions');
+    console.log('✅ Returning successful response with', formattedAuctions.length, 'auctions');
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('❌ Simplified API error:', error);
+    console.error('❌ API error:', error);
     
-    // Return a basic error response
     return NextResponse.json(
       { 
         error: 'Erreur lors du chargement des enchères',
@@ -88,20 +187,78 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Helper function to calculate auction statistics
+async function calculateAuctionStats(storeId: bigint) {
+  const [
+    totalAuctions,
+    activeAuctions,
+    endingSoon,
+    scheduledAuctions,
+    archivedAuctions,
+    totalRevenueResult,
+    totalViews,
+    totalWatchers,
+    totalBidsResult
+  ] = await Promise.all([
+    prisma.auction.count({ where: { storeId } }),
+    prisma.auction.count({ where: { storeId, status: { in: ['ACTIVE', 'RUNNING', 'ENDING_SOON'] } } }),
+    prisma.auction.count({ where: { storeId, status: 'ENDING_SOON' } }),
+    prisma.auction.count({ where: { storeId, status: 'SCHEDULED' } }),
+    prisma.auction.count({ where: { storeId, status: 'ARCHIVED' } }),
+    prisma.auction.aggregate({
+      where: { storeId, status: 'ENDED' },
+      _sum: { currentBid: true }
+    }),
+    prisma.auction.aggregate({
+      where: { storeId },
+      _sum: { views: true }
+    }),
+    prisma.auction.aggregate({
+      where: { storeId },
+      _sum: { watchers: true }
+    }),
+    prisma.bid.groupBy({
+      by: ['auctionId'],
+      where: {
+        auction: { storeId }
+      },
+      _count: true
+    })
+  ]);
+
+  const totalRevenue = totalRevenueResult._sum.currentBid ? Number(totalRevenueResult._sum.currentBid) : 0;
+  const averageBidsPerAuction = totalBidsResult.length > 0 
+    ? totalBidsResult.reduce((sum, item) => sum + item._count, 0) / totalBidsResult.length
+    : 0;
+  const conversionRate = totalAuctions > 0 ? (activeAuctions / totalAuctions) * 100 : 0;
+  const averageSellingPrice = activeAuctions > 0 ? totalRevenue / activeAuctions : 0;
+
+  return {
+    totalAuctions,
+    activeAuctions,
+    endingSoon,
+    scheduledAuctions,
+    archivedAuctions,
+    totalRevenue,
+    totalViews: totalViews._sum.views || 0,
+    totalWatchers: totalWatchers._sum.watchers || 0,
+    averageBidsPerAuction: parseFloat(averageBidsPerAuction.toFixed(1)),
+    conversionRate: parseFloat(conversionRate.toFixed(1)),
+    averageSellingPrice: parseFloat(averageSellingPrice.toFixed(2)),
+  };
+}
+
 // POST /api/vendors/auctions - Create new auction
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authConfig);
     
-    // Development mode bypass
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (!session?.user && !isDevelopment) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
     // Check if user is vendor or admin
-    if (!isDevelopment && session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
+    if (session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
 
@@ -109,18 +266,18 @@ export async function POST(request: NextRequest) {
     const validatedData = createAuctionSchema.parse(body);
 
     // Calculate end time based on start time and duration
-    const startTime = validatedData.startTime ? new Date(validatedData.startTime) : new Date();
-    const endTime = new Date(startTime.getTime() + validatedData.duration * 60 * 60 * 1000);
+    const startAt = validatedData.startAt ? new Date(validatedData.startAt) : new Date();
+    const endAt = new Date(startAt.getTime() + validatedData.duration * 60 * 60 * 1000);
 
     // Validate business rules
-    if (startTime < new Date()) {
+    if (startAt < new Date()) {
       return NextResponse.json(
         { error: 'La date de début ne peut pas être dans le passé' },
         { status: 400 }
       );
     }
 
-    if (validatedData.reservePrice && validatedData.reservePrice <= validatedData.startingPrice) {
+    if (validatedData.reservePrice && validatedData.reservePrice <= validatedData.startPrice) {
       return NextResponse.json(
         { error: 'Le prix de réserve doit être supérieur au prix de départ' },
         { status: 400 }
@@ -129,40 +286,45 @@ export async function POST(request: NextRequest) {
 
     // Determine auction status based on start time
     let auctionStatus = 'SCHEDULED';
-    if (validatedData.startTime) {
+    if (validatedData.startAt) {
       const now = new Date();
-      if (startTime <= now) {
+      if (startAt <= now) {
         auctionStatus = 'RUNNING';
       } else {
         auctionStatus = 'SCHEDULED';
       }
     }
 
-    // Get or create vendor's store
+    // Get vendor's store
     const vendor = await prisma.vendor.findUnique({
       where: { userId: BigInt(session?.user?.id || '1') },
       include: { stores: true }
     });
 
-    let store;
-    if (!vendor || vendor.stores.length === 0) {
-      // Create a default store for the vendor
-      const newVendor = vendor || await prisma.vendor.create({
-        data: { userId: BigInt(session?.user?.id || '1') }
-      });
-      
-      store = await prisma.store.create({
-        data: {
-          sellerId: newVendor.id,
-          name: 'Ma Boutique',
-          slug: `store-${Date.now()}`,
-          email: session?.user?.email || 'vendor@example.com',
-          status: 'ACTIVE'
-        }
-      });
-    } else {
-      store = vendor.stores[0];
+    // Check if vendor profile exists
+    if (!vendor) {
+      return NextResponse.json(
+        { 
+          error: 'Vendor profile required',
+          message: 'Please complete vendor application first'
+        },
+        { status: 403 }
+      );
     }
+
+    // Check if vendor has at least one active store
+    const activeStore = vendor.stores.find(s => s.status === 'ACTIVE');
+    if (!activeStore) {
+      return NextResponse.json(
+        { 
+          error: 'Active store required',
+          message: 'Please create and get approval for a store before creating auctions'
+        },
+        { status: 403 }
+      );
+    }
+
+    const store = activeStore;
 
     // Create new auction in database
     const newAuction = await prisma.auction.create({
@@ -171,12 +333,12 @@ export async function POST(request: NextRequest) {
         description: validatedData.description,
         images: validatedData.images,
         category: validatedData.category,
-        startPrice: validatedData.startingPrice,
+        startPrice: validatedData.startPrice,
         reservePrice: validatedData.reservePrice || null,
-        currentBid: validatedData.startingPrice,
+        currentBid: validatedData.startPrice,
         minIncrement: 10, // Default increment
-        startAt: startTime,
-        endAt: endTime,
+        startAt: startAt,
+        endAt: endAt,
         duration: validatedData.duration,
         autoExtend: validatedData.autoExtend || false,
         extendMinutes: validatedData.extendMinutes || 5,

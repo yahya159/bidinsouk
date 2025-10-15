@@ -11,25 +11,7 @@ export default async function WorkspaceLayoutPage({
   try {
     const session = await getServerSession(authConfig);
     
-    // Temporary bypass for development - remove this in production
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
     if (!session?.user) {
-      if (isDevelopment) {
-        // Create a mock user for development
-        const mockUser: { id: string; name: string; email: string; role: 'VENDOR' | 'ADMIN' } = {
-          id: 'dev-user',
-          name: 'Development User',
-          email: 'dev@bidinsouk.com',
-          role: 'ADMIN', // Changé de 'VENDOR' à 'ADMIN' pour permettre l'accès admin
-        };
-        
-        return (
-          <WorkspaceLayout user={mockUser as any}>
-            {children}
-          </WorkspaceLayout>
-        );
-      }
       redirect('/login');
     }
 
@@ -44,18 +26,8 @@ export default async function WorkspaceLayoutPage({
       </WorkspaceLayout>
     );
   } catch (error) {
-    console.error('Workspace layout error:', error);
-    
-    // In development, show the error instead of redirecting
-    if (process.env.NODE_ENV === 'development') {
-      return (
-        <div style={{ padding: '2rem', color: 'red' }}>
-          <h1>Workspace Layout Error</h1>
-          <pre>{error?.toString()}</pre>
-        </div>
-      );
-    }
-    
+    const { logger } = await import('@/lib/logger');
+    logger.error('Workspace layout error', error);
     redirect('/login');
   }
 }

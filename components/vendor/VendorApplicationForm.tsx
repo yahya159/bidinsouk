@@ -22,6 +22,7 @@ export function VendorApplicationForm({ onSuccess }: VendorApplicationFormProps)
       businessName: '',
       businessType: '',
       description: '',
+      cleanupClientData: true,
       acceptTerms: false,
     },
 
@@ -137,6 +138,23 @@ export function VendorApplicationForm({ onSuccess }: VendorApplicationFormProps)
             />
           </Stack>
         </Stack>
+
+        <Alert 
+          icon={<IconAlertCircle size={16} />} 
+          title="Important" 
+          color="yellow"
+        >
+          <Stack gap="xs">
+            <Text size="sm">
+              En devenant vendeur, vous conserverez la possibilité d'acheter des produits en tant que client.
+            </Text>
+            <Checkbox
+              label="Supprimer mes anciennes commandes, enchères et historique d'achat (recommandé pour un nouveau départ)"
+              description="Si vous décochez cette option, votre historique d'achat sera conservé."
+              {...form.getInputProps('cleanupClientData', { type: 'checkbox' })}
+            />
+          </Stack>
+        </Alert>
 
         <Checkbox
           label="J'accepte les conditions générales *"

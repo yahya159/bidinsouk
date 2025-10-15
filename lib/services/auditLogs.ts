@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 export async function createAuditLog(data: {
   actorId: bigint
   vendorId?: bigint
+  action: string
   entity: string
   entityId: bigint
   diff: any
@@ -11,6 +12,7 @@ export async function createAuditLog(data: {
     data: {
       actorId: data.actorId,
       vendorId: data.vendorId,
+      action: data.action,
       entity: data.entity,
       entityId: data.entityId,
       diff: data.diff
@@ -65,6 +67,7 @@ export async function logProductChange(
   return createAuditLog({
     actorId,
     vendorId,
+    action: 'UPDATE',
     entity: 'Product',
     entityId: productId,
     diff
@@ -88,6 +91,7 @@ export async function logAuctionChange(
   return createAuditLog({
     actorId,
     vendorId,
+    action: 'UPDATE',
     entity: 'Auction',
     entityId: auctionId,
     diff
@@ -111,6 +115,7 @@ export async function logOrderChange(
   return createAuditLog({
     actorId,
     vendorId,
+    action: 'UPDATE',
     entity: 'Order',
     entityId: orderId,
     diff

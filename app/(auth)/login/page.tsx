@@ -54,8 +54,9 @@ export default function LoginPage() {
       if (result?.error) {
         setError('Invalid email or password')
       } else {
-        // Rediriger l'administrateur directement vers le dashboard admin
-        router.push('/workspace/dashboard')
+        // Redirect based on user role after successful login
+        // The server will handle the role-based redirect
+        router.push('/')
         router.refresh()
       }
     } catch (err) {
@@ -67,7 +68,7 @@ export default function LoginPage() {
   
   const handleSocialLogin = (provider: string) => {
     setLoading(true)
-    signIn(provider, { callbackUrl: '/workspace/dashboard' })
+    signIn(provider, { callbackUrl: '/' })
   }
   
   return (

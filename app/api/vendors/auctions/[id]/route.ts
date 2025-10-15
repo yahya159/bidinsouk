@@ -91,7 +91,7 @@ export async function GET(
     }
 
     // Check access permissions
-    const isOwner = auction.store.seller.userId === session.user.id;
+    const isOwner = auction.store.seller.userId.toString() === session.user.id;
     const isAdmin = session.user.role === 'ADMIN';
     
     if (!isOwner && !isAdmin) {
@@ -200,7 +200,11 @@ export async function PUT(
       include: {
         store: {
           select: {
-            userId: true,
+            seller: {
+              select: {
+                userId: true,
+              }
+            }
           }
         },
         _count: {
@@ -219,7 +223,7 @@ export async function PUT(
     }
 
     // Check access permissions
-    const isOwner = existingAuction.store.userId === session.user.id;
+    const isOwner = existingAuction.store.seller.userId.toString() === session.user.id;
     const isAdmin = session.user.role === 'ADMIN';
     
     if (!isOwner && !isAdmin) {
@@ -230,7 +234,7 @@ export async function PUT(
     }
 
     // Business rule validations
-    if (existingAuction.status === 'ACTIVE' && existingAuction._count.bids > 0) {
+    if (existingAuction.status === 'RUNNING' && existingAuction._count.bids > 0) {
       // Restrict what can be updated for active auctions with bids
       const allowedFields = ['description', 'endTime'];
       const attemptedFields = Object.keys(validatedData);
@@ -247,7 +251,7 @@ export async function PUT(
       }
     }
 
-    if (existingAuction.status === 'ENDED' || existingAuction.status === 'CANCELLED') {
+    if (existingAuction.status === 'ENDED' || existingAuction.status === 'ARCHIVED') {
       return NextResponse.json(
         { error: 'Impossible de modifier une enchère terminée ou annulée' },
         { status: 400 }
@@ -255,8 +259,8 @@ export async function PUT(
     }
 
     // Validate reserve price if provided
-    if (validatedData.reservePrice && validatedData.startingPrice) {
-      if (validatedData.reservePrice < validatedData.startingPrice) {
+    if (validatedData.reservePrice && validatedData.startPrice) {
+      if (validatedData.reservePrice < validatedData.startPrice) {
         return NextResponse.json(
           { error: 'Le prix de réserve doit être supérieur ou égal au prix de départ' },
           { status: 400 }
@@ -265,8 +269,8 @@ export async function PUT(
     }
 
     // Validate end time if provided
-    if (validatedData.endTime) {
-      const newEndTime = new Date(validatedData.endTime);
+    if (validatedData.endAt) {
+      const newEndTime = new Date(validatedData.endAt);
       const now = new Date();
       
       if (newEndTime <= now) {
@@ -277,7 +281,7 @@ export async function PUT(
       }
 
       // Minimum extension of 1 hour for active auctions
-      if (existingAuction.status === 'ACTIVE') {
+      if (existingAuction.status === 'RUNNING') {
         const minEndTime = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour from now
         if (newEndTime < minEndTime) {
           return NextResponse.json(
@@ -293,7 +297,6 @@ export async function PUT(
       where: { id: auctionId },
       data: {
         ...validatedData,
-        endTime: validatedData.endTime ? new Date(validatedData.endTime) : undefined,
         updatedAt: new Date(),
       },
       include: {
@@ -315,10 +318,10 @@ export async function PUT(
     if (prisma.auctionActivity) {
       await prisma.auctionActivity.create({
         data: {
-          auctionId: auctionId,
-          userId: session.user.id,
-          action: 'UPDATED',
-          details: {
+          auctionId: BigInt(auctionId),
+          userId: BigInt(session.user.id),
+          activityType: 'UPDATED',
+          metadata: {
             updatedFields: Object.keys(validatedData),
             changes: validatedData,
           }
@@ -332,13 +335,13 @@ export async function PUT(
       description: updatedAuction.description,
       images: updatedAuction.images,
       category: updatedAuction.category,
-      startingPrice: updatedAuction.startingPrice,
+      startPrice: updatedAuction.startPrice,
       reservePrice: updatedAuction.reservePrice,
       currentBid: updatedAuction.currentBid,
       bidCount: updatedAuction._count.bids,
       status: updatedAuction.status,
-      startTime: updatedAuction.startTime,
-      endTime: updatedAuction.endTime,
+      startAt: updatedAuction.startAt,
+      endAt: updatedAuction.endAt,
       duration: updatedAuction.duration,
       store: updatedAuction.store,
       createdAt: updatedAuction.createdAt,
@@ -367,7 +370,7 @@ export async function PUT(
 // DELETE /api/vendors/auctions/[id] - Cancel/archive auction
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authConfig);
@@ -379,7 +382,8 @@ export async function DELETE(
       );
     }
 
-    const auctionId = parseInt(params.id);
+    const { id } = await params;
+    const auctionId = parseInt(id);
     
     if (isNaN(auctionId)) {
       return NextResponse.json(
@@ -394,7 +398,11 @@ export async function DELETE(
       include: {
         store: {
           select: {
-            userId: true,
+            seller: {
+              select: {
+                userId: true,
+              }
+            }
           }
         },
         _count: {
@@ -413,7 +421,7 @@ export async function DELETE(
     }
 
     // Check access permissions
-    const isOwner = existingAuction.store.userId === session.user.id;
+    const isOwner = existingAuction.store.seller.userId.toString() === session.user.id;
     const isAdmin = session.user.role === 'ADMIN';
     
     if (!isOwner && !isAdmin) {
@@ -431,7 +439,7 @@ export async function DELETE(
       );
     }
 
-    if (existingAuction.status === 'CANCELLED') {
+    if (existingAuction.status === 'ARCHIVED' || existingAuction.status === 'CANCELLED') {
       return NextResponse.json(
         { error: 'Cette enchère est déjà annulée' },
         { status: 400 }
@@ -453,10 +461,10 @@ export async function DELETE(
       if (prisma.auctionActivity) {
         await prisma.auctionActivity.create({
           data: {
-            auctionId: auctionId,
-            userId: session.user.id,
-            action: 'CANCELLED',
-            details: {
+            auctionId: BigInt(auctionId),
+            userId: BigInt(session.user.id),
+            activityType: 'CANCELLED',
+            metadata: {
               reason: 'Cancelled by vendor',
               hadBids: true,
               bidCount: existingAuction._count.bids,
@@ -474,8 +482,8 @@ export async function DELETE(
         }
       });
     } else {
-      // For draft auctions without bids, we can actually delete
-      if (existingAuction.status === 'DRAFT') {
+      // For draft or scheduled auctions without bids, we can actually delete
+      if (existingAuction.status === 'DRAFT' || existingAuction.status === 'SCHEDULED') {
         await prisma.auction.delete({
           where: { id: auctionId }
         });
@@ -497,10 +505,10 @@ export async function DELETE(
         if (prisma.auctionActivity) {
           await prisma.auctionActivity.create({
             data: {
-              auctionId: auctionId,
-              userId: session.user.id,
-              action: 'CANCELLED',
-              details: {
+              auctionId: BigInt(auctionId),
+              userId: BigInt(session.user.id),
+              activityType: 'CANCELLED',
+              metadata: {
                 reason: 'Cancelled by vendor',
                 hadBids: false,
               }

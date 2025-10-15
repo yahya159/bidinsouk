@@ -25,14 +25,14 @@ import {
   Divider,
 } from '@mantine/core';
 import {
-  Search,
-  MoreHorizontal,
-  Eye,
-  MessageCircle,
-  Ban,
-  CheckCircle,
-  Users,
-} from 'lucide-react';
+  IconSearch,
+  IconDots,
+  IconEye,
+  IconMessageCircle,
+  IconBan,
+  IconCircleCheck,
+  IconUsers,
+} from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -196,7 +196,7 @@ export function UsersContent({ user }: UsersContentProps) {
                     <Text c="dimmed" size="sm">Total Utilisateurs</Text>
                     <Text fw={700} size="xl">{totalUsers}</Text>
                   </div>
-                  <Users size={24} color="var(--mantine-color-blue-6)" />
+                  <IconUsers size={24} color="var(--mantine-color-blue-6)" />
                 </Group>
               </Card>
             </Grid.Col>
@@ -217,7 +217,7 @@ export function UsersContent({ user }: UsersContentProps) {
                 <Group gap="md">
                   <TextInput
                     placeholder="Rechercher par nom ou email..."
-                    leftSection={<Search size={16} />}
+                    leftSection={<IconSearch size={16} />}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{ flex: 1 }}
@@ -236,7 +236,7 @@ export function UsersContent({ user }: UsersContentProps) {
               {filteredUsers.length === 0 ? (
                 <Center py="xl">
                   <Stack align="center" gap="md">
-                    <Users size={48} color="gray" />
+                    <IconUsers size={48} color="gray" />
                     <Text size="lg" c="dimmed">
                       Aucun utilisateur trouvé
                     </Text>
@@ -282,7 +282,7 @@ export function UsersContent({ user }: UsersContentProps) {
                               <Button
                                 size="xs"
                                 variant="light"
-                                leftSection={<Eye size={14} />}
+                                leftSection={<IconEye size={14} />}
                                 onClick={() => handleViewUser(u)}
                                 style={{ flex: 1 }}
                               >
@@ -291,18 +291,18 @@ export function UsersContent({ user }: UsersContentProps) {
                               <Menu shadow="md" width={200}>
                                 <Menu.Target>
                                   <ActionIcon variant="light" size="sm">
-                                    <MoreHorizontal size={16} />
+                                    <IconDots size={16} />
                                   </ActionIcon>
                                 </Menu.Target>
                                 <Menu.Dropdown>
-                                  <Menu.Item leftSection={<MessageCircle size={16} />}>
+                                  <Menu.Item leftSection={<IconMessageCircle size={16} />}>
                                     Contacter
                                   </Menu.Item>
                                   {user.role === 'ADMIN' && u.role !== 'ADMIN' && (
                                     <>
                                       {u.role === 'CLIENT' && (
                                         <Menu.Item
-                                          leftSection={<CheckCircle size={16} />}
+                                          leftSection={<IconCircleCheck size={16} />}
                                           onClick={() => handleStatusChange(u.id, 'VENDOR')}
                                         >
                                           Promouvoir en vendeur
@@ -310,7 +310,7 @@ export function UsersContent({ user }: UsersContentProps) {
                                       )}
                                       {u.role === 'VENDOR' && (
                                         <Menu.Item
-                                          leftSection={<CheckCircle size={16} />}
+                                          leftSection={<IconCircleCheck size={16} />}
                                           onClick={() => handleStatusChange(u.id, 'CLIENT')}
                                         >
                                           Révoquer les droits vendeur
@@ -409,14 +409,14 @@ export function UsersContent({ user }: UsersContentProps) {
 
             {/* Actions */}
             <Group>
-              <Button leftSection={<MessageCircle size={16} />} style={{ flex: 1 }}>
+              <Button leftSection={<IconMessageCircle size={16} />} style={{ flex: 1 }}>
                 Contacter l'utilisateur
               </Button>
               {user.role === 'ADMIN' && selectedUser.role !== 'ADMIN' && (
                 <Button
                   variant="outline"
                   color="green"
-                  leftSection={<CheckCircle size={16} />}
+                  leftSection={<IconCircleCheck size={16} />}
                   onClick={() => {
                     const newRole = selectedUser.role === 'CLIENT' ? 'VENDOR' : 'CLIENT';
                     handleStatusChange(selectedUser.id, newRole);

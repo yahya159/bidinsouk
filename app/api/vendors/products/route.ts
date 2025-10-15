@@ -51,15 +51,12 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authConfig);
     
-    // Development mode bypass
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (!session?.user && !isDevelopment) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
     // Check if user is vendor or admin
-    if (!isDevelopment && session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
+    if (session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
 
@@ -79,53 +76,59 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Get user ID for database operations
-    const userId = isDevelopment ? BigInt(1) : BigInt(session?.user?.id || 1);
+    const userId = BigInt(session.user.id);
+    const isAdminUser = session.user.role === 'ADMIN';
 
     try {
-      // Find user's store or create if needed
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          vendor: {
-            include: {
-              stores: true
+      // Build where clause for filtering
+      const whereClause: any = {};
+
+      // If not admin, restrict to user's store
+      if (!isAdminUser) {
+        // Find user's store
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          include: {
+            vendor: {
+              include: {
+                stores: true
+              }
             }
           }
+        });
+
+        if (!user) {
+          return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
         }
-      });
 
-      // Auto-create vendor and store if they don't exist
-      let vendor = user?.vendor;
-      if (!vendor) {
-        vendor = await prisma.vendor.create({
-          data: {
-            userId: userId
-          },
-          include: {
-            stores: true
-          }
-        });
+        // Check if vendor profile exists
+        const vendor = user.vendor;
+        if (!vendor) {
+          return NextResponse.json(
+            { 
+              error: 'Vendor profile required',
+              message: 'Please complete vendor application first'
+            },
+            { status: 403 }
+          );
+        }
+
+        // Check if vendor has at least one active store
+        const activeStore = vendor.stores.find(s => s.status === 'ACTIVE');
+        if (!activeStore) {
+          return NextResponse.json(
+            { 
+              error: 'Active store required',
+              message: 'Please create and get approval for a store first'
+            },
+            { status: 403 }
+          );
+        }
+
+        // Restrict to vendor's store
+        whereClause.storeId = activeStore.id;
       }
-
-      let store = vendor.stores[0];
-      if (!store) {
-        store = await prisma.store.create({
-          data: {
-            sellerId: vendor.id,
-            name: 'Ma Boutique',
-            slug: `store-${Date.now()}-${userId}`,
-            email: user?.email || 'vendor@example.com',
-            status: 'ACTIVE'
-          }
-        });
-      }
-
-      const storeId = store.id;
-
-      // Build where clause for filtering
-      const whereClause: any = {
-        storeId: storeId
-      };
+      // Admin can see all products, no storeId restriction
 
       // Search filter
       if (query.search) {
@@ -163,8 +166,9 @@ export async function GET(request: NextRequest) {
 
       // Calculate statistics
       // @ts-ignore - TypeScript doesn't recognize all Product properties correctly
+      const statsWhereClause = isAdminUser ? {} : { storeId: whereClause.storeId };
       const allProducts = await prisma.product.findMany({
-        where: { storeId: storeId },
+        where: statsWhereClause,
       });
 
       const stats = {
@@ -254,15 +258,12 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authConfig);
     
-    // Development mode bypass
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (!session?.user && !isDevelopment) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
     // Check if user is vendor or admin
-    if (!isDevelopment && session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
+    if (session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
 
@@ -270,10 +271,10 @@ export async function POST(request: NextRequest) {
     const validatedData = createProductSchema.parse(body);
 
     // Get user ID for database operations
-    const userId = isDevelopment ? BigInt(1) : BigInt(session?.user?.id || 1);
+    const userId = BigInt(session.user.id);
 
     try {
-      // Find user first to ensure they exist
+      // Find user with vendor profile and stores
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
@@ -285,66 +286,35 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // If user doesn't exist in development mode, create a test user
-      if (isDevelopment && !user) {
-        // Create a test user first
-        const testUser = await prisma.user.create({
-          data: {
-            email: 'test-vendor@example.com',
-            name: 'Test Vendor',
-            password: '$2a$10$8K1p/a0dURXAm7QiTRqUzuN0/SpuDMaM3V55Bv48F08qDoIa8K7SW', // "password" hashed
-            role: 'VENDOR'
-          }
-        });
-        
-        // Now find the user again
-        const newUser = await prisma.user.findUnique({
-          where: { id: testUser.id },
-          include: {
-            vendor: {
-              include: {
-                stores: true
-              }
-            }
-          }
-        });
-        
-        if (!newUser) {
-          throw new Error('Failed to create test user');
-        }
-        
-        // Continue with newUser
-      } else if (!user) {
+      if (!user) {
         return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
       }
 
-      // Auto-create vendor and store if they don't exist
-      let vendor = user?.vendor;
+      // Check if vendor profile exists
+      const vendor = user.vendor;
       if (!vendor) {
-        vendor = await prisma.vendor.create({
-          data: {
-            userId: userId
+        return NextResponse.json(
+          { 
+            error: 'Vendor profile required',
+            message: 'Please complete vendor application first'
           },
-          include: {
-            stores: true
-          }
-        });
+          { status: 403 }
+        );
       }
 
-      let store = vendor.stores[0];
-      if (!store) {
-        store = await prisma.store.create({
-          data: {
-            sellerId: vendor.id,
-            name: 'Ma Boutique',
-            slug: `store-${Date.now()}-${userId}`,
-            email: user?.email || 'vendor@example.com',
-            status: 'ACTIVE'
-          }
-        });
+      // Check if vendor has at least one active store
+      const activeStore = vendor.stores.find(s => s.status === 'ACTIVE');
+      if (!activeStore) {
+        return NextResponse.json(
+          { 
+            error: 'Active store required',
+            message: 'Please create and get approval for a store first'
+          },
+          { status: 403 }
+        );
       }
 
-      const storeId = store.id;
+      const storeId = activeStore.id;
 
       // Create product in database
       const newProduct = await prisma.product.create({

@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { markAsRead } from '@/lib/services/notifications'
-
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  if (!userId) return null
-  return { userId: BigInt(userId) }
-}
+import { requireAuth } from '@/lib/auth/api-auth'
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: paramsPromise }: { params: Promise<{ id: string }> }
 ) {
+  const params = await paramsPromise
   try {
-    const user = getCurrentUser(req)
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const user = await requireAuth(req)
 
-    await markAsRead(BigInt(params.id), user.userId)
+    await markAsRead(BigInt(params.id), BigInt(user.userId))
     return NextResponse.json({ success: true })
   } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

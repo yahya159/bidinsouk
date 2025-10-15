@@ -3,6 +3,8 @@ import { authConfig } from '@/lib/auth/config';
 import { redirect } from 'next/navigation';
 import { AnalyticsContent } from '@/components/workspace/analytics/AnalyticsContent';
 
+export const dynamic = 'force-dynamic';
+
 export default async function WorkspaceAnalyticsPage() {
   const session = await getServerSession(authConfig);
   

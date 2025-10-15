@@ -1,0 +1,308 @@
+/**
+ * REDIS CACHING LAYER
+ * 
+ * Provides high-performance caching with TTL support
+ * 
+ * Cache Strategy:
+ * - Product listings: 5 minutes
+ * - Auction listings: 30 seconds  
+ * - User profiles: 15 minutes
+ * - Dashboard stats: 10 minutes
+ * - Category counts: 30 minutes
+ * 
+ * Cache Invalidation:
+ * - Automatic on TTL expiry
+ * - Manual on data updates
+ * - Pattern-based bulk invalidation
+ */
+
+import { Redis } from 'ioredis';
+
+// ============================================================================
+// REDIS CLIENT
+// ============================================================================
+
+let redis: Redis | null = null;
+
+export function getRedisClient(): Redis | null {
+  // If Redis is not configured, return null (graceful degradation)
+  if (!process.env.REDIS_URL) {
+    console.warn('[CACHE] Redis URL not configured, caching disabled');
+    return null;
+  }
+
+  // Singleton pattern
+  if (!redis) {
+    try {
+      redis = new Redis(process.env.REDIS_URL, {
+        maxRetriesPerRequest: 3,
+        retryStrategy: (times) => {
+          if (times > 3) {
+            console.error('[CACHE] Redis connection failed after 3 retries');
+            return null; // Stop retrying
+          }
+          return Math.min(times * 100, 2000); // Exponential backoff
+        },
+        reconnectOnError: (err) => {
+          const targetError = 'READONLY';
+          if (err.message.includes(targetError)) {
+            // Reconnect on READONLY error
+            return true;
+          }
+          return false;
+        }
+      });
+
+      redis.on('connect', () => {
+        console.log('[CACHE] Redis connected successfully');
+      });
+
+      redis.on('error', (err) => {
+        console.error('[CACHE] Redis error:', err);
+      });
+
+    } catch (error) {
+      console.error('[CACHE] Failed to initialize Redis:', error);
+      return null;
+    }
+  }
+
+  return redis;
+}
+
+// ============================================================================
+// CACHE OPERATIONS
+// ============================================================================
+
+/**
+ * Get cached data
+ */
+export async function getCachedData<T = any>(key: string): Promise<T | null> {
+  try {
+    const client = getRedisClient();
+    if (!client) return null;
+
+    const data = await client.get(key);
+    if (!data) return null;
+
+    return JSON.parse(data) as T;
+  } catch (error) {
+    console.error(`[CACHE] Error getting ${key}:`, error);
+    return null; // Graceful degradation
+  }
+}
+
+/**
+ * Set cached data with TTL
+ */
+export async function setCachedData(
+  key: string,
+  data: any,
+  ttlSeconds: number = 300 // Default 5 minutes
+): Promise<boolean> {
+  try {
+    const client = getRedisClient();
+    if (!client) return false;
+
+    await client.setex(key, ttlSeconds, JSON.stringify(data));
+    return true;
+  } catch (error) {
+    console.error(`[CACHE] Error setting ${key}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Delete cached data
+ */
+export async function deleteCachedData(key: string): Promise<boolean> {
+  try {
+    const client = getRedisClient();
+    if (!client) return false;
+
+    await client.del(key);
+    return true;
+  } catch (error) {
+    console.error(`[CACHE] Error deleting ${key}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Delete multiple keys by pattern
+ * Example: invalidatePattern('products:*') deletes all product caches
+ */
+export async function invalidatePattern(pattern: string): Promise<number> {
+  try {
+    const client = getRedisClient();
+    if (!client) return 0;
+
+    const keys = await client.keys(pattern);
+    if (keys.length === 0) return 0;
+
+    const deleted = await client.del(...keys);
+    console.log(`[CACHE] Invalidated ${deleted} keys matching ${pattern}`);
+    return deleted;
+  } catch (error) {
+    console.error(`[CACHE] Error invalidating pattern ${pattern}:`, error);
+    return 0;
+  }
+}
+
+/**
+ * Get cache statistics
+ */
+export async function getCacheStats(): Promise<{
+  connected: boolean;
+  usedMemory?: string;
+  keys?: number;
+  hitRate?: number;
+}> {
+  try {
+    const client = getRedisClient();
+    if (!client) {
+      return { connected: false };
+    }
+
+    const info = await client.info('stats');
+    const dbSize = await client.dbsize();
+    
+    // Parse hit rate from info
+    const hitMatch = info.match(/keyspace_hits:(\d+)/);
+    const missMatch = info.match(/keyspace_misses:(\d+)/);
+    
+    const hits = hitMatch ? parseInt(hitMatch[1]) : 0;
+    const misses = missMatch ? parseInt(missMatch[1]) : 0;
+    const total = hits + misses;
+    const hitRate = total > 0 ? (hits / total) * 100 : 0;
+
+    return {
+      connected: true,
+      usedMemory: info.match(/used_memory_human:(.+)/)?.[1]?.trim(),
+      keys: dbSize,
+      hitRate: Math.round(hitRate * 100) / 100
+    };
+  } catch (error) {
+    console.error('[CACHE] Error getting stats:', error);
+    return { connected: false };
+  }
+}
+
+// ============================================================================
+// CACHE KEY GENERATORS
+// ============================================================================
+
+export const CacheKeys = {
+  // Product caches (5 min TTL)
+  products: (filters: any) => `products:${JSON.stringify(filters)}`,
+  product: (id: string | bigint) => `product:${id}`,
+  productsByStore: (storeId: string | bigint) => `products:store:${storeId}`,
+  
+  // Auction caches (30 sec TTL - more dynamic)
+  auctions: (filters: any) => `auctions:${JSON.stringify(filters)}`,
+  auction: (id: string | bigint) => `auction:${id}`,
+  auctionsByStore: (storeId: string | bigint) => `auctions:store:${storeId}`,
+  auctionBids: (auctionId: string | bigint) => `auction:${auctionId}:bids`,
+  
+  // User caches (15 min TTL)
+  user: (id: string | bigint) => `user:${id}`,
+  userProfile: (id: string | bigint) => `user:${id}:profile`,
+  userBids: (userId: string | bigint) => `user:${userId}:bids`,
+  userOrders: (userId: string | bigint) => `user:${userId}:orders`,
+  
+  // Dashboard stats (10 min TTL)
+  vendorStats: (vendorId: string | bigint) => `vendor:${vendorId}:stats`,
+  adminStats: () => `admin:stats`,
+  
+  // Category data (30 min TTL - very stable)
+  categories: () => `categories:all`,
+  categoryCount: (category: string) => `category:${category}:count`,
+  
+  // Search (5 min TTL)
+  search: (query: string, filters: any) => `search:${query}:${JSON.stringify(filters)}`
+};
+
+// ============================================================================
+// CACHE TTL CONSTANTS
+// ============================================================================
+
+export const CacheTTL = {
+  PRODUCTS: 300,          // 5 minutes
+  AUCTIONS: 30,           // 30 seconds (dynamic)
+  AUCTION_DETAIL: 10,     // 10 seconds (very dynamic)
+  USER_PROFILE: 900,      // 15 minutes
+  DASHBOARD_STATS: 600,   // 10 minutes
+  CATEGORIES: 1800,       // 30 minutes
+  SEARCH_RESULTS: 300,    // 5 minutes
+  SHORT: 60,              // 1 minute
+  MEDIUM: 300,            // 5 minutes
+  LONG: 1800              // 30 minutes
+};
+
+// ============================================================================
+// CACHE INVALIDATION HELPERS
+// ============================================================================
+
+/**
+ * Invalidate all caches related to a product
+ */
+export async function invalidateProductCaches(productId: string | bigint) {
+  await Promise.all([
+    deleteCachedData(CacheKeys.product(productId)),
+    invalidatePattern('products:*'), // Invalidate all product listings
+    invalidatePattern('search:*')    // Invalidate search results
+  ]);
+}
+
+/**
+ * Invalidate all caches related to an auction
+ */
+export async function invalidateAuctionCaches(auctionId: string | bigint) {
+  await Promise.all([
+    deleteCachedData(CacheKeys.auction(auctionId)),
+    deleteCachedData(CacheKeys.auctionBids(auctionId)),
+    invalidatePattern('auctions:*'), // Invalidate all auction listings
+    invalidatePattern('user:*:bids') // Invalidate user bid histories
+  ]);
+}
+
+/**
+ * Invalidate all caches for a vendor
+ */
+export async function invalidateVendorCaches(vendorId: string | bigint) {
+  await Promise.all([
+    deleteCachedData(CacheKeys.vendorStats(vendorId)),
+    invalidatePattern(`products:store:*`),
+    invalidatePattern(`auctions:store:*`)
+  ]);
+}
+
+/**
+ * Warm up cache with common queries (run at deployment)
+ */
+export async function warmUpCache() {
+  console.log('[CACHE] Warming up cache...');
+  
+  // Pre-cache common data
+  // This would be called at deployment time
+  
+  console.log('[CACHE] Cache warm-up complete');
+}
+
+// ============================================================================
+// EXPORT
+// ============================================================================
+
+export default {
+  getCachedData,
+  setCachedData,
+  deleteCachedData,
+  invalidatePattern,
+  getCacheStats,
+  invalidateProductCaches,
+  invalidateAuctionCaches,
+  invalidateVendorCaches,
+  CacheKeys,
+  CacheTTL
+};
+

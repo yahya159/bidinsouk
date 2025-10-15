@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  const role = req.headers.get('x-user-role')
-  if (!userId) return null
-  return { userId, role }
-}
+import { requireRole } from '@/lib/auth/api-auth'
 
 export async function GET(req: NextRequest) {
   try {
-    const user = getCurrentUser(req)
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, ['ADMIN'])
 
     const { searchParams } = new URL(req.url)
     const limit = parseInt(searchParams.get('limit') || '50')
@@ -84,6 +75,18 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ reviews: serializedReviews, total })
   } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    if (error.message === 'Forbidden') {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
     console.error('Error fetching admin reviews:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

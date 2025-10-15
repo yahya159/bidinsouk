@@ -2,7 +2,6 @@ import { prisma } from '@/lib/db/prisma'
 import { OrderSource } from '@prisma/client'
 import { pusher } from '@/lib/realtime/pusher'
 import { sendNotification } from '@/lib/notifications/helpers'
-import { sendSystemEmail } from '@/lib/email/helpers'
 
 interface CreateOrderRequestInput {
   userId: bigint
@@ -126,12 +125,7 @@ export async function acceptOrderRequest(input: AcceptOrderRequestInput) {
       { orderId: Number(result.order.id) }
     )
 
-    // TODO: Send email notification
-    // await sendSystemEmail(
-    //   client.email,
-    //   'Order Request Accepted',
-    //   // Add email template here
-    // )
+    // Email notifications disabled until transactional provider is configured
   }
 
   // Trigger Pusher event for the store
@@ -189,12 +183,7 @@ export async function refuseOrderRequest(input: RefuseOrderRequestInput) {
       { orderId: Number(orderRequest.id) }
     )
 
-    // TODO: Send email notification
-    // await sendSystemEmail(
-    //   client.email,
-    //   'Order Request Refused',
-    //   // Add email template here
-    // )
+    // Email notifications disabled until transactional provider is configured
   }
 
   // Trigger Pusher event for the store

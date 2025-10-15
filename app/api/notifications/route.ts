@@ -29,27 +29,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// GET /api/notifications/count - Get unread notifications count
-export async function GET_count(req: NextRequest) {
-  try {
-    const user = await requireAuth(req)
-
-    const count = await prisma.notification.count({
-      where: {
-        userId: BigInt(user.userId),
-        readAt: null
-      }
-    })
-
-    return NextResponse.json({ count })
-  } catch (error: any) {
-    if (error.message === 'Unauthorized') {
-      return NextResponse.json({ count: 0 })
-    }
-    return NextResponse.json({ count: 0 })
-  }
-}
-
 export async function PATCH(req: NextRequest) {
   try {
     const user = await requireAuth(req)

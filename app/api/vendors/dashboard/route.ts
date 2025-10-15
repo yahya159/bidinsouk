@@ -4,24 +4,15 @@ import { prisma } from '@/lib/db/prisma';
 
 export async function GET(request: NextRequest) {
   try {
-    let vendorId: bigint | null = null;
-    
-    // Development mode bypass
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (!isDevelopment) {
-      const user = await requireAuth(request);
-      vendorId = await getVendorId(request);
+    // Require authentication
+    const user = await requireAuth(request);
+    const vendorId = await getVendorId(request);
 
-      if (!vendorId) {
-        return NextResponse.json(
-          { error: 'Vendor access required' },
-          { status: 403 }
-        );
-      }
-    } else {
-      // In development mode, use a default vendor ID for testing
-      vendorId = BigInt(5); // Default vendor ID for testing
+    if (!vendorId) {
+      return NextResponse.json(
+        { error: 'Vendor access required' },
+        { status: 403 }
+      );
     }
 
     // Get current date and previous month for comparison

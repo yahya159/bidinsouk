@@ -17,8 +17,8 @@ async function seedProductsAndAuctions() {
         data: {
           email: 'vendor@bidinsouk.com',
           name: 'Vendeur Demo',
+          password: '$2a$10$abcdefghijklmnopqrstuvwxyz',
           role: 'VENDOR',
-          emailVerified: new Date(),
         }
       });
 

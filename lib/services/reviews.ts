@@ -94,3 +94,31 @@ export async function getProductRatingStats(productId: bigint) {
 
   return { average, total, distribution }
 }
+
+export async function getStoreRatingStats(storeId: bigint) {
+  // Get all reviews for products from this store
+  const reviews = await prisma.review.findMany({
+    where: {
+      status: 'APPROVED',
+      product: {
+        storeId
+      }
+    },
+    select: { rating: true }
+  })
+
+  if (reviews.length === 0) {
+    return { average: 0, total: 0, distribution: {} }
+  }
+
+  const total = reviews.length
+  const sum = reviews.reduce((acc, r) => acc + r.rating, 0)
+  const average = Math.round((sum / total) * 10) / 10 // Round to 1 decimal
+
+  const distribution = reviews.reduce((acc: any, r) => {
+    acc[r.rating] = (acc[r.rating] || 0) + 1
+    return acc
+  }, {})
+
+  return { average, total, distribution }
+}

@@ -1,20 +1,20 @@
 'use client';
 
-import { Container, Title, Text, Button, Group, Box } from '@mantine/core';
+import { Container, Title, Text, Button, Group, Box, Stack } from '@mantine/core';
 import Link from 'next/link';
 
 export default function ModernHero() {
   return (
     <Box 
       py={80} 
-      sx={(theme) => ({
-        backgroundImage: `linear-gradient(135deg, ${theme.colors.blue[6]} 0%, ${theme.colors.indigo[6]} 100%)`,
-        borderRadius: theme.radius.lg,
-        marginTop: theme.spacing.xl,
-      })}
+      style={{
+        backgroundImage: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        borderRadius: '16px',
+        marginTop: '32px',
+      }}
     >
       <Container size="lg">
-        <Group justify="center" align="center" direction="column" gap="xl">
+        <Stack justify="center" align="center" gap="xl">
           <Title 
             order={1} 
             c="white" 
@@ -54,7 +54,7 @@ export default function ModernHero() {
               </Button>
             </Link>
           </Group>
-        </Group>
+        </Stack>
       </Container>
     </Box>
   );

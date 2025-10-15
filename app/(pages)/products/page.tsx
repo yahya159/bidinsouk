@@ -1,13 +1,17 @@
 'use client'
 
-import { Container, Title, Text, Stack, Loader, Alert, SimpleGrid, Card, Image, Badge, Group, Button, TextInput, Select, Drawer, Checkbox, RangeSlider, NumberInput, ActionIcon, Chip } from '@mantine/core'
+import { Container, Title, Text, Stack, Alert, SimpleGrid, TextInput, Select, Drawer, Checkbox, RangeSlider, NumberInput, ActionIcon, Chip, Card, Group, Button, Badge } from '@mantine/core'
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { Heart, Search, Filter, X, ShoppingCart, Star } from 'lucide-react'
+import { Search, Filter, X, Package } from 'lucide-react'
 import { useDebouncedValue, useDisclosure } from '@mantine/hooks'
+import { notifications } from '@mantine/notifications'
+import { ProductCard } from '@/components/cards/ProductCard'
+import { ProductCardSkeleton } from '@/components/skeletons/ProductCardSkeleton'
+import { EmptyState } from '@/components/shared/EmptyState'
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 
-interface ProductCard {
+interface ProductListItem {
   id: string
   slug: string
   title: string
@@ -40,7 +44,7 @@ export default function ProductsPage() {
   const searchParams = useSearchParams()
   const [opened, { open, close }] = useDisclosure(false)
   
-  const [products, setProducts] = useState<ProductCard[]>([])
+  const [products, setProducts] = useState<ProductListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [total, setTotal] = useState(0)
@@ -326,15 +330,69 @@ export default function ProductsPage() {
     </Stack>
   )
 
-  if (loading) {
-    return (
-      <Container size="7xl" py="xl">
-        <Stack align="center" justify="center" style={{ height: '400px' }}>
-          <Loader size="xl" />
-          <Text>Chargement des produits...</Text>
-        </Stack>
-      </Container>
-    )
+  // Handle add to cart
+  const handleAddToCart = async (productId: string) => {
+    try {
+      const response = await fetch('/api/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, quantity: 1 }),
+      })
+
+      if (response.ok) {
+        notifications.show({
+          title: 'Succès',
+          message: 'Produit ajouté au panier',
+          color: 'green',
+        })
+      } else {
+        const errorData = await response.json()
+        if (response.status === 401 && errorData.redirectTo) {
+          // Redirect to login page
+          router.push('/login')
+        } else {
+          throw new Error(errorData.error || 'Erreur lors de l\'ajout au panier')
+        }
+      }
+    } catch (error) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible d\'ajouter au panier',
+        color: 'red',
+      })
+    }
+  }
+
+  const handleAddToWishlist = async (productId: string) => {
+    try {
+      const response = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, action: 'add' }),
+      })
+
+      if (response.ok) {
+        notifications.show({
+          title: 'Succès',
+          message: 'Produit ajouté aux favoris',
+          color: 'green',
+        })
+      } else {
+        const errorData = await response.json()
+        if (response.status === 401 && errorData.redirectTo) {
+          // Redirect to login page
+          router.push('/login')
+        } else {
+          throw new Error(errorData.error || 'Erreur lors de l\'ajout aux favoris')
+        }
+      }
+    } catch (error) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible d\'ajouter aux favoris',
+        color: 'red',
+      })
+    }
   }
 
   if (error) {
@@ -343,27 +401,32 @@ export default function ProductsPage() {
         <Alert title="Erreur" color="red">
           {error}
         </Alert>
+        <Button mt="md" onClick={() => fetchProducts()}>
+          Réessayer
+        </Button>
       </Container>
     )
   }
 
   return (
-    <div style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
-      <Container size="7xl" py="xl">
-        {/* Header */}
-        <Stack gap="xl" mb="xl">
-          <div>
-            <Title order={1} mb="md">Tous les produits</Title>
-            <TextInput
-              placeholder="Rechercher des produits..."
-              leftSection={<Search size={18} />}
-              value={filters.q}
-              onChange={(event) => setFilters(prev => ({ ...prev, q: event.currentTarget.value }))}
-              size="md"
-              style={{ maxWidth: 400 }}
-            />
-          </div>
-        </Stack>
+    <ErrorBoundary>
+      <div style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+        <Container size="7xl" py="xl">
+          {/* Header */}
+          <Stack gap="xl" mb="xl">
+            <div>
+              <Title order={1} mb="md">Tous les produits</Title>
+              <TextInput
+                placeholder="Rechercher des produits..."
+                leftSection={<Search size={18} />}
+                value={filters.q}
+                onChange={(event) => setFilters(prev => ({ ...prev, q: event.currentTarget.value }))}
+                size="md"
+                style={{ maxWidth: 400 }}
+                aria-label="Rechercher des produits"
+              />
+            </div>
+          </Stack>
 
         <div style={{ display: 'flex', gap: '24px' }}>
           {/* Desktop Filters */}
@@ -442,131 +505,50 @@ export default function ProductsPage() {
             </Card>
 
             {/* Products Grid */}
-            {products.length === 0 ? (
-              <Alert title="Aucun produit trouvé" color="blue">
-                Aucun produit ne correspond à vos critères de recherche.
-              </Alert>
+            {loading ? (
+              <SimpleGrid cols={{ base: 1, sm: 2, lg: 3, xl: 4 }} spacing="lg">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <ProductCardSkeleton key={i} />
+                ))}
+              </SimpleGrid>
+            ) : products.length === 0 ? (
+              <EmptyState
+                icon={Package}
+                title="Aucun produit trouvé"
+                description="Aucun produit ne correspond à vos critères de recherche. Essayez de modifier vos filtres."
+                action={
+                  activeFiltersCount > 0 ? (
+                    <Button onClick={clearFilters}>
+                      Réinitialiser les filtres
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <SimpleGrid cols={{ base: 1, sm: 2, lg: 3, xl: 4 }} spacing="lg">
                 {products.map((product) => (
-                  <Card key={product.id} shadow="sm" padding="lg" radius="md" withBorder className="hover:shadow-lg transition-shadow">
-                    <Card.Section>
-                      <div style={{ position: 'relative', height: '200px', backgroundColor: '#f8f9fa' }}>
-                        <Image
-                          src={product.imageUrl}
-                          alt={product.title}
-                          height={200}
-                          fit="cover"
-                        />
-                        
-                        {/* Condition Badge */}
-                        <Badge 
-                          color={getConditionColor(product.condition)} 
-                          style={{ position: 'absolute', top: '8px', right: '8px' }}
-                          size="sm"
-                        >
-                          {getConditionLabel(product.condition)}
-                        </Badge>
-
-                        {/* Discount Badge */}
-                        {product.discountPct && (
-                          <Badge 
-                            color="red" 
-                            style={{ position: 'absolute', top: '8px', left: '8px' }}
-                            size="sm"
-                          >
-                            -{product.discountPct}%
-                          </Badge>
-                        )}
-
-                        {/* Wishlist Button */}
-                        <ActionIcon
-                          variant="light"
-                          style={{ position: 'absolute', bottom: '8px', right: '8px' }}
-                          size="sm"
-                        >
-                          <Heart size={16} />
-                        </ActionIcon>
-                      </div>
-                    </Card.Section>
-
-                    <Stack gap="sm" mt="md">
-                      <Text fw={500} size="sm" lineClamp={2}>
-                        {product.title}
-                      </Text>
-
-                      <Text size="xs" c="dimmed">
-                        {product.category.name}
-                      </Text>
-
-                      {/* Rating */}
-                      {product.rating && (
-                        <Group gap="xs" align="center">
-                          <Group gap={2}>
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                size={12}
-                                style={{
-                                  color: i < Math.floor(product.rating!) ? '#fbbf24' : '#d1d5db',
-                                  fill: i < Math.floor(product.rating!) ? '#fbbf24' : 'none'
-                                }}
-                              />
-                            ))}
-                          </Group>
-                          <Text size="xs" c="dimmed">
-                            ({product.reviewsCount})
-                          </Text>
-                        </Group>
-                      )}
-
-                      <div>
-                        <Group gap="xs" align="baseline">
-                          <Text fw={700} size="lg" c="blue">
-                            {formatPrice(product.price)} د.م
-                          </Text>
-                          {product.compareAtPrice && product.compareAtPrice > product.price && (
-                            <Text size="xs" c="dimmed" td="line-through">
-                              {formatPrice(product.compareAtPrice)} د.م
-                            </Text>
-                          )}
-                        </Group>
-                      </div>
-
-                      <Text size="xs" c="dimmed">
-                        Vendu par {product.seller.name}
-                      </Text>
-
-                      {/* Stock Status */}
-                      <Badge 
-                        color={product.inStock ? 'green' : 'red'} 
-                        variant="light" 
-                        size="sm"
-                      >
-                        {product.inStock ? 'En stock' : 'Rupture de stock'}
-                      </Badge>
-
-                      {/* CTA Buttons */}
-                      <Group gap="xs">
-                        <Button 
-                          variant="filled"
-                          size="sm" 
-                          flex={1}
-                          disabled={!product.inStock}
-                          leftSection={<ShoppingCart size={16} />}
-                        >
-                          Acheter
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          leftSection={<Heart size={16} />}
-                        >
-                          Favoris
-                        </Button>
-                      </Group>
-                    </Stack>
-                  </Card>
+                  <ProductCard
+                    key={product.id}
+                    id={product.id}
+                    title={product.title}
+                    imageUrl={product.imageUrl}
+                    price={product.price}
+                    compareAtPrice={product.compareAtPrice}
+                    condition={product.condition}
+                    category={product.category.name}
+                    rating={product.rating}
+                    reviewsCount={product.reviewsCount}
+                    inStock={product.inStock}
+                    seller={product.seller}
+                    onAddToCart={(e) => {
+                      e.preventDefault()
+                      handleAddToCart(product.id)
+                    }}
+                    onAddToWishlist={(e) => {
+                      e.preventDefault()
+                      handleAddToWishlist(product.id)
+                    }}
+                  />
                 ))}
               </SimpleGrid>
             )}
@@ -585,7 +567,8 @@ export default function ProductsPage() {
             </Button>
           </Group>
         </Drawer>
-      </Container>
-    </div>
+        </Container>
+      </div>
+    </ErrorBoundary>
   )
 }

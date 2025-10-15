@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth/config'
-import { applyToBeVendor } from '@/lib/services/vendors'
+import { upgradeToVendor, getUserRoles } from '@/lib/services/role-management'
 import { VendorApplicationDto } from '@/lib/validations/vendors'
+import { prisma } from '@/lib/db/prisma'
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,11 +21,40 @@ export async function POST(req: NextRequest) {
     const applicationData = VendorApplicationDto.parse(body)
     console.log('Données validées:', applicationData);
 
-    // Vérifier si l'utilisateur est déjà vendeur
+    // Get cleanup preference from body (default: true)
+    const cleanupOldData = body.cleanupClientData !== false
+    console.log('Cleanup old client data:', cleanupOldData);
+
     const userId = BigInt(session.user.id)
     
-    const result = await applyToBeVendor(userId, applicationData)
-    return NextResponse.json(result, { status: 201 })
+    // Check if user is already a vendor
+    const currentRoles = await getUserRoles(userId)
+    if (currentRoles.roles.includes('VENDOR')) {
+      return NextResponse.json(
+        { error: 'Vous êtes déjà un vendeur' },
+        { status: 400 }
+      )
+    }
+
+    // Update user information
+    await prisma.user.update({
+      where: { id: userId },
+      data: { 
+        name: applicationData.name,
+        phone: applicationData.phone
+      }
+    })
+
+    // Upgrade to vendor with role management service
+    const result = await upgradeToVendor(userId, cleanupOldData)
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Vous êtes maintenant un vendeur',
+      roles: result.roles,
+      primaryRole: result.primaryRole,
+      dataCleanedUp: cleanupOldData
+    }, { status: 201 })
   } catch (error: any) {
     console.error('Erreur dans l\'API vendors/apply:', error);
     

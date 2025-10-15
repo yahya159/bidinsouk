@@ -1,9 +1,10 @@
 import { prisma } from '@/lib/db/prisma'
 import { pusher } from '@/lib/realtime/pusher'
+import { NotificationType } from '@prisma/client'
 
 export async function sendNotification(
   userId: number,
-  type: string,
+  type: NotificationType,
   title: string,
   body: string,
   payload?: any
@@ -12,7 +13,7 @@ export async function sendNotification(
     // Save notification to database
     const notification = await prisma.notification.create({
       data: {
-        userId,
+        userId: BigInt(userId),
         type,
         title,
         body,

@@ -35,29 +35,27 @@ const updateProductSchema = z.object({
 
 // Database-based product operations
 
-interface RouteParams {
-  params: {
+type RouteContext = {
+  params: Promise<{
     id: string;
-  };
-}
+  }>;
+};
 
 // GET /api/vendors/products/[id] - Get product details
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  const { id } = await context.params;
   try {
     const session = await getServerSession(authConfig);
     
-    // Development mode bypass
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (!session?.user && !isDevelopment) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    if (!isDevelopment && session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
+    if (session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
 
-    const productId = BigInt(params.id);
+    const productId = BigInt(id);
     
     // Build where clause for access control
     const where: any = { id: productId };
@@ -100,22 +98,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 // PUT /api/vendors/products/[id] - Update product
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export async function PUT(request: NextRequest, context: RouteContext) {
+  const { id } = await context.params;
   try {
     const session = await getServerSession(authConfig);
     
-    // Development mode bypass
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (!session?.user && !isDevelopment) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    if (!isDevelopment && session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
+    if (session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
 
-    const productId = BigInt(params.id);
+    const productId = BigInt(id);
     
     // Build where clause for access control
     const where: any = { id: productId };
@@ -203,22 +199,20 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 }
 
 // DELETE /api/vendors/products/[id] - Delete product
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const { id } = await context.params;
   try {
     const session = await getServerSession(authConfig);
     
-    // Development mode bypass
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (!session?.user && !isDevelopment) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    if (!isDevelopment && session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
+    if (session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
 
-    const productId = BigInt(params.id);
+    const productId = BigInt(id);
     
     // Build where clause for access control
     const where: any = { id: productId };

@@ -1,27 +1,24 @@
 import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authConfig } from '@/lib/auth/config';
+import { requireAdminAuth } from '@/lib/middleware/admin-auth';
+import { AdminLayoutShell } from '@/components/admin/layout/AdminLayoutShell';
+import { AdminErrorBoundary } from '@/components/admin/security/AdminErrorBoundary';
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authConfig);
-  
-  if (!session?.user) {
-    redirect('/login');
+  const { redirect: redirectUrl, session } = await requireAdminAuth();
+
+  if (redirectUrl) {
+    redirect(redirectUrl);
   }
 
-  // Only allow ADMIN role to access admin pages
-  if (session.user.role !== 'ADMIN') {
-    // Redirect vendors to their dashboard, clients to vendor application
-    if (session.user.role === 'VENDOR') {
-      redirect('/vendor-dashboard');
-    } else {
-      redirect('/vendors/apply?reason=admin');
-    }
-  }
-
-  return <>{children}</>;
+  return (
+    <AdminErrorBoundary>
+      <AdminLayoutShell user={session?.user!}>
+        {children}
+      </AdminLayoutShell>
+    </AdminErrorBoundary>
+  );
 }

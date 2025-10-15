@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-
-function getCurrentUser(req: NextRequest) {
-  const userId = req.headers.get('x-user-id')
-  const role = req.headers.get('x-user-role')
-  if (!userId) return null
-  return { userId, role }
-}
+import { requireRole } from '@/lib/auth/api-auth'
 
 export async function POST(req: NextRequest) {
   try {
-    const user = getCurrentUser(req)
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, ['ADMIN'])
 
     const { type, dateRange } = await req.json()
 
@@ -116,6 +107,7 @@ export async function POST(req: NextRequest) {
     const auditLog = await prisma.auditLog.create({
       data: {
         actorId: BigInt(user.userId),
+        action: 'GENERATE_REPORT',
         entity: 'Report',
         entityId: BigInt(Date.now()), // ID temporaire
         diff: reportData,
@@ -132,6 +124,18 @@ export async function POST(req: NextRequest) {
       data: reportData
     })
   } catch (error: any) {
+    if (error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    if (error.message === 'Forbidden') {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
     console.error('Error generating report:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

@@ -1,24 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth/config'
+import { getCartCount } from '@/lib/services/cart'
+import { logger } from '@/lib/logger'
+import { ErrorResponses, successResponse } from '@/lib/api/responses'
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authConfig)
 
     if (!session?.user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return ErrorResponses.unauthorized()
     }
 
-    // In a real implementation, you would get the actual cart count from the database
-    // For now, we'll return a placeholder count
-    const count = 0
+    const count = await getCartCount(BigInt(session.user.id))
 
-    return NextResponse.json({ count })
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: 'Erreur lors de la récupération du nombre d\'articles dans le panier' },
-      { status: 500 }
-    )
+    return successResponse({ data: { count } })
+  } catch (error) {
+    logger.error('Failed to fetch cart count', error)
+    return ErrorResponses.serverError('Erreur lors de la récupération du nombre d\'articles dans le panier', error)
   }
 }

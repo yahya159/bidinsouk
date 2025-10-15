@@ -3,35 +3,11 @@ import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth/config';
 import { prisma } from '@/lib/db/prisma';
 import { z } from 'zod';
-
-// Validation schemas for different settings sections
-const storeSettingsSchema = z.object({
-  storeName: z.string().min(1, 'Le nom de la boutique est requis').max(100).optional(),
-  storeDescription: z.string().max(500).optional(),
-  logo: z.string().optional(),
-  banner: z.string().optional(),
-  businessHours: z.any().optional(),
-  shippingPolicy: z.string().max(1000).optional(),
-  returnPolicy: z.string().max(1000).optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'TEMPORARILY_CLOSED']).optional(),
-}).passthrough();
-
-const accountSettingsSchema = z.object({
-  firstName: z.string().min(1, 'Le prénom est requis').max(50).optional(),
-  lastName: z.string().min(1, 'Le nom est requis').max(50).optional(),
-  email: z.string().email('Email invalide').optional(),
-  phone: z.string().optional(),
-  businessEmail: z.string().optional(),
-  businessPhone: z.string().optional(),
-  address: z.any().optional(),
-  preferences: z.any().optional(),
-}).passthrough();
-
-const notificationSettingsSchema = z.object({
-  email: z.any().optional(),
-  push: z.any().optional(),
-  frequency: z.enum(['IMMEDIATE', 'HOURLY', 'DAILY', 'WEEKLY']).optional(),
-}).passthrough();
+import { 
+  StoreSettingsDto, 
+  AccountSettingsDto, 
+  NotificationSettingsDto 
+} from '@/lib/validations/vendorSettings';
 
 // Default settings structure
 const getDefaultSettings = () => ({
@@ -95,14 +71,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authConfig);
     
-    // Development mode bypass
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (!session?.user && !isDevelopment) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    if (!isDevelopment && session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
+    if (session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
 
@@ -110,11 +83,11 @@ export async function GET(request: NextRequest) {
     const section = searchParams.get('section');
 
     // Get user ID for database operations
-    const userId = isDevelopment ? BigInt(1) : BigInt(session?.user?.id || 1);
+    const userId = BigInt(session.user.id);
 
     try {
-      // Find or create user with vendor profile
-      let user = await prisma.user.findUnique({
+      // Find user with vendor profile
+      const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
           vendor: {
@@ -126,43 +99,35 @@ export async function GET(request: NextRequest) {
       });
 
       if (!user) {
-        // Create user in development mode
-        if (isDevelopment) {
-          user = await prisma.user.create({
-            data: {
-              id: userId,
-              email: 'dev@bidinsouk.com',
-              name: 'Development User',
-              password: 'dev-password',
-              role: 'VENDOR',
-              vendor: {
-                create: {
-                  stores: {
-                    create: {
-                      name: 'Ma Boutique',
-                      slug: 'ma-boutique-dev',
-                      email: 'contact@maboutique.com',
-                      status: 'ACTIVE'
-                    }
-                  }
-                }
-              }
-            },
-            include: {
-              vendor: {
-                include: {
-                  stores: true
-                }
-              }
-            }
-          });
-        } else {
-          return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
-        }
+        return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
       }
 
-      // Get settings from user's store or create default
-      const store = user.vendor?.stores[0];
+      // Check if vendor profile exists
+      const vendor = user.vendor;
+      if (!vendor) {
+        return NextResponse.json(
+          { 
+            error: 'Vendor profile required',
+            message: 'Please complete vendor application first'
+          },
+          { status: 403 }
+        );
+      }
+
+      // Check if vendor has at least one active store
+      const activeStore = vendor.stores.find(s => s.status === 'ACTIVE');
+      if (!activeStore) {
+        return NextResponse.json(
+          { 
+            error: 'Active store required',
+            message: 'Please create and get approval for a store first'
+          },
+          { status: 403 }
+        );
+      }
+
+      // Get settings from user's active store
+      const store = activeStore;
       let settings = getDefaultSettings();
 
       if (store) {
@@ -229,14 +194,11 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authConfig);
     
-    // Development mode bypass
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (!session?.user && !isDevelopment) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    if (!isDevelopment && session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
+    if (session?.user?.role !== 'VENDOR' && session?.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
 
@@ -255,13 +217,13 @@ export async function PUT(request: NextRequest) {
     // Validate based on section
     switch (section) {
       case 'store':
-        validatedData = storeSettingsSchema.parse(data);
+        validatedData = StoreSettingsDto.parse(data);
         break;
       case 'account':
-        validatedData = accountSettingsSchema.parse(data);
+        validatedData = AccountSettingsDto.parse(data);
         break;
       case 'notifications':
-        validatedData = notificationSettingsSchema.parse(data);
+        validatedData = NotificationSettingsDto.parse(data);
         break;
       default:
         return NextResponse.json(
@@ -271,11 +233,11 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get user ID for database operations
-    const userId = isDevelopment ? BigInt(1) : BigInt(session?.user?.id || 1);
+    const userId = BigInt(session.user.id);
 
     try {
       // Find user with vendor profile
-      let user = await prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
           vendor: {
@@ -286,33 +248,35 @@ export async function PUT(request: NextRequest) {
         }
       });
 
-      // Auto-create vendor and store if they don't exist
-      let vendor = user?.vendor;
+      if (!user) {
+        return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
+      }
+
+      // Check if vendor profile exists
+      const vendor = user.vendor;
       if (!vendor) {
-        vendor = await prisma.vendor.create({
-          data: {
-            userId: userId
+        return NextResponse.json(
+          { 
+            error: 'Vendor profile required',
+            message: 'Please complete vendor application first'
           },
-          include: {
-            stores: true
-          }
-        });
+          { status: 403 }
+        );
       }
 
-      let store = vendor.stores[0];
-      if (!store) {
-        store = await prisma.store.create({
-          data: {
-            sellerId: vendor.id,
-            name: 'Ma Boutique',
-            slug: `store-${Date.now()}-${userId}`,
-            email: user?.email || 'vendor@example.com',
-            status: 'ACTIVE'
-          }
-        });
+      // Check if vendor has at least one active store
+      const activeStore = vendor.stores.find(s => s.status === 'ACTIVE');
+      if (!activeStore) {
+        return NextResponse.json(
+          { 
+            error: 'Active store required',
+            message: 'Please create and get approval for a store first'
+          },
+          { status: 403 }
+        );
       }
 
-      // Use the store we just ensured exists
+      const store = activeStore;
       
       // Get current settings
       let currentSeo = store.seo as any || {};
@@ -326,7 +290,10 @@ export async function PUT(request: NextRequest) {
       };
 
       if (section === 'store') {
-        updateData.name = validatedData.storeName || store.name;
+        const storeSettings = validatedData as z.infer<typeof StoreSettingsDto>;
+        if (storeSettings.storeName !== undefined) {
+          updateData.name = storeSettings.storeName || store.name;
+        }
       }
 
       if (section === 'account') {
@@ -334,9 +301,9 @@ export async function PUT(request: NextRequest) {
         await prisma.user.update({
           where: { id: userId },
           data: {
-            name: `${validatedData.firstName || 'John'} ${validatedData.lastName || 'Doe'}`,
-            email: validatedData.email || user.email,
-            phone: validatedData.phone || user.phone,
+            name: user.name,
+            email: user.email,
+            phone: user.phone || '',
           }
         });
       }

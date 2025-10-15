@@ -60,37 +60,5 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// GET /api/auctions/my-bids/count - Get count of auctions where user has placed bids
-export async function GET_count(request: NextRequest) {
-  try {
-    const session = await getServerSession(authConfig)
-
-    if (!session?.user) {
-      return NextResponse.json({ count: 0 })
-    }
-
-    // Get client profile
-    const client = await prisma.client.findUnique({
-      where: { userId: BigInt(session.user.id) }
-    })
-
-    if (!client) {
-      return NextResponse.json({ count: 0 })
-    }
-
-    // Count auctions where user has placed bids
-    const count = await prisma.auction.count({
-      where: {
-        bids: {
-          some: {
-            clientId: client.id
-          }
-        }
-      }
-    })
-
-    return NextResponse.json({ count })
-  } catch (error: any) {
-    return NextResponse.json({ count: 0 })
-  }
-}
+// Note: Removed GET_count as it's not a valid Next.js route handler
+// To get count, use GET with ?count=true query param or create separate /count route

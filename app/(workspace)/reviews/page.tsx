@@ -3,6 +3,8 @@ import { authConfig } from '@/lib/auth/config';
 import { redirect } from 'next/navigation';
 import { ReviewsContent } from '@/components/workspace/reviews/ReviewsContent';
 
+export const dynamic = 'force-dynamic';
+
 export default async function WorkspaceReviewsPage() {
   const session = await getServerSession(authConfig);
   

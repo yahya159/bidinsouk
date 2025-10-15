@@ -1,143 +1,135 @@
-'use client'
+'use client';
 
-import { 
-  Container, 
-  Title, 
-  Text, 
-  Card, 
-  Stack, 
-  Group, 
-  Button, 
-  Alert, 
-  Loader,
-  Center,
-  Box
-} from '@mantine/core'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { IconAlertCircle, IconRefresh, IconUsers } from '@tabler/icons-react'
-import { SiteHeader } from '@/components/layout/SiteHeader'
-import Footer from '@/components/shared/Footer'
-import { UsersContent } from '@/components/admin/users/UsersContent'
+import { useState, useEffect } from 'react';
+import {
+  Container,
+  Title,
+  Button,
+  Group,
+  Stack,
+  Text,
+  Modal,
+  Checkbox,
+  Menu,
+  ActionIcon,
+} from '@mantine/core';
+import { IconPlus, IconDots } from '@tabler/icons-react';
+import { UsersTable } from '@/components/admin/users/UsersTable';
+import { notifications } from '@mantine/notifications';
+import { useRouter } from 'next/navigation';
+import { Role } from '@prisma/client';
 
 interface User {
   id: string;
   name: string;
   email: string;
-  role: 'CLIENT' | 'VENDOR' | 'ADMIN';
+  phone: string | null;
+  role: Role;
+  avatarUrl: string | null;
+  locale: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export default function AdminUsersPage() {
-  const router = useRouter()
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export default function UsersListPage() {
+  const router = useRouter();
+  const [users, setUsers] = useState<User[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+      });
+
+      if (search) {
+        params.append('search', search);
+      }
+
+      if (roleFilter) {
+        params.append('role', roleFilter);
+      }
+
+      const response = await fetch(`/api/admin/users?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
+
+      const data = await response.json();
+      setUsers(data.users);
+      setTotalCount(data.pagination.totalCount);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to load users',
+        color: 'red',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await fetch('/api/auth/session')
-        if (response.ok) {
-          const session = await response.json()
-          if (session?.user) {
-            setUser(session.user)
-          } else {
-            router.push('/login')
-          }
-        } else {
-          router.push('/login')
-        }
-      } catch (err) {
-        setError('Erreur de chargement de la session')
-      } finally {
-        setLoading(false)
-      }
-    }
+    fetchUsers();
+  }, [page, search, roleFilter]);
 
-    fetchUser()
-  }, [router])
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
 
-  if (loading) {
-    return (
-      <>
-        <SiteHeader />
-        <Container size="xl" py="xl">
-          <Stack align="center" justify="center" style={{ height: '400px' }}>
-            <Loader />
-            <Text>Chargement...</Text>
-          </Stack>
-        </Container>
-        <Footer />
-      </>
-    )
-  }
+  const handleSearch = (searchValue: string) => {
+    setSearch(searchValue);
+    setPage(1); // Reset to first page on search
+  };
 
-  if (error) {
-    return (
-      <>
-        <SiteHeader />
-        <Container size="xl" py="xl">
-          <Alert 
-            icon={<IconAlertCircle size={16} />} 
-            title="Erreur" 
-            color="red"
-          >
-            {error}
-          </Alert>
-        </Container>
-        <Footer />
-      </>
-    )
-  }
+  const handleRoleFilter = (role: string | null) => {
+    setRoleFilter(role);
+    setPage(1); // Reset to first page on filter
+  };
 
-  if (!user) {
-    return null
-  }
-
-  // Vérifier que l'utilisateur est un administrateur
-  if (user.role !== 'ADMIN') {
-    return (
-      <>
-        <SiteHeader />
-        <Container size="xl" py="xl">
-          <Alert 
-            icon={<IconAlertCircle size={16} />} 
-            title="Accès refusé" 
-            color="red"
-          >
-            Vous n'avez pas les permissions nécessaires pour accéder à cette page.
-          </Alert>
-        </Container>
-        <Footer />
-      </>
-    )
-  }
+  const handleCreateUser = () => {
+    router.push('/admin-dashboard/users/new');
+  };
 
   return (
-    <>
-      <SiteHeader />
-      <Container size="xl" py="xl">
-        <Stack gap="xl">
-          <Group justify="space-between">
-            <div>
-              <Title order={1}>Gestion des utilisateurs</Title>
-              <Text c="dimmed">
-                Liste de tous les utilisateurs de la plateforme
-              </Text>
-            </div>
-            <Button 
-              leftSection={<IconRefresh size={16} />}
-              variant="outline"
-              onClick={() => window.location.reload()}
-            >
-              Actualiser
-            </Button>
-          </Group>
-          
-          <UsersContent user={user} />
-        </Stack>
-      </Container>
-      <Footer />
-    </>
-  )
+    <Container size="xl" py="xl">
+      <Stack gap="lg">
+        <Group justify="space-between">
+          <div>
+            <Title order={2}>User Management</Title>
+            <Text c="dimmed" size="sm">
+              Manage all platform users
+            </Text>
+          </div>
+          <Button
+            leftSection={<IconPlus size={16} />}
+            onClick={handleCreateUser}
+          >
+            Create User
+          </Button>
+        </Group>
+
+        <UsersTable
+          users={users}
+          totalCount={totalCount}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+          onSearch={handleSearch}
+          onRoleFilter={handleRoleFilter}
+          loading={loading}
+        />
+      </Stack>
+    </Container>
+  );
 }
