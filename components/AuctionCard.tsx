@@ -71,7 +71,7 @@ export default function AuctionCard({ auction }: AuctionCardProps) {
 
         if (response.ok) {
           setIsInWatchlist(false)
-          setWatcherCount((prev) => Math.max(prev - 1, 0))
+          setWatcherCount((prev: number) => Math.max(prev - 1, 0))
           notifications.show({
             color: 'blue',
             title: 'Favoris mis a jour',
@@ -91,7 +91,7 @@ export default function AuctionCard({ auction }: AuctionCardProps) {
 
         if (response.ok) {
           setIsInWatchlist(true)
-          setWatcherCount((prev) => prev + 1)
+          setWatcherCount((prev: number) => prev + 1)
           notifications.show({
             color: 'teal',
             title: 'Enchere ajoutee',
